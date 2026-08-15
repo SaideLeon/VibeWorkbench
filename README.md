@@ -1,11 +1,18 @@
-<div align="center">
+# Brada Iota (Next.js)
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Aplicação migrada para **Next.js (App Router)**, mantendo o mesmo design da interface.
 
-  <h1>Built with AI Studio</h2>
+## Rodar localmente
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+```bash
+npm install
+npm run dev
+```
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+A aplicação ficará em `http://localhost:3000`.
 
-</div>
+## Estrutura
+
+- `src/app/page.tsx`: entrada do frontend.
+- `src/app/api/**`: backend via rotas do servidor Next.js.
+- `src/server/**`: serviços compartilhados do backend (GitHub, cache, Gemini).

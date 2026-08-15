@@ -1,0 +1,59 @@
+export async function analyzeCode(
+  files: { path: string; content: string }[],
+  userQuery?: string,
+  apiKey?: string
+) {
+  const response = await fetch('/api/ai/analyze', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contextFiles: files,
+      prompt: userQuery,
+      apiKey
+    })
+  });
+  
+  if (!response.ok) {
+    let errorMessage = response.statusText;
+    try {
+        const errorBody = await response.json();
+        if (errorBody.error) errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
+    } catch (e) {
+        // Ignore JSON parse error
+    }
+    throw new Error(`AI Analysis failed: ${errorMessage}`);
+  }
+  
+  return response.json();
+}
+
+export async function thinkAndSuggest(
+  history: { role: string; content: string }[],
+  currentInput: string,
+  context: string,
+  apiKey?: string
+) {
+  const response = await fetch('/api/ai/think', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      history,
+      currentInput,
+      context,
+      apiKey
+    })
+  });
+
+  if (!response.ok) {
+    let errorMessage = response.statusText;
+    try {
+        const errorBody = await response.json();
+        if (errorBody.error) errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
+    } catch (e) {
+        // Ignore JSON parse error
+    }
+    throw new Error(`AI Thinking failed: ${errorMessage}`);
+  }
+
+  return response.json();
+}

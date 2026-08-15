@@ -1,0 +1,1205 @@
+diff --git a/src/App.tsx b/src/App.tsx
+index f543d7f..31d8b79 100644
+--- a/src/App.tsx
++++ b/src/App.tsx
+@@ -1,6 +1,6 @@
+ import { useState, useEffect } from 'react';
+ import { motion, AnimatePresence } from 'motion/react';
+-import { Loader2, FileText, MessageSquare, Files, Eye, Menu, X as CloseIcon } from 'lucide-react';
++import { Loader2, FileText, MessageSquare, Files, Eye, Menu, X as CloseIcon, ShieldAlert } from 'lucide-react';
+ import { cn } from '@/lib/utils';
+ 
+ // Components
+@@ -9,20 +9,24 @@ import { RepoInput } from '@/components/layout/RepoInput';
+ import { FileTree } from '@/components/file-explorer/FileTree';
+ import { FileViewer } from '@/components/file-explorer/FileViewer';
+ import { ChatInterface } from '@/components/ai-chat/ChatInterface';
++import { SecurityAuditPanel } from '@/components/security/SecurityAuditPanel';
+ 
+ // Hooks
+ import { useGithubRepository } from '@/hooks/useGithubRepository';
+ import { useAIChat } from '@/hooks/useAIChat';
++import { useSecurityAudit } from '@/hooks/useSecurityAudit';
+ 
+ import { useToast } from '@/components/ui/Toast';
+ 
+ type MobileTab = 'files' | 'chat' | 'preview';
++type MainPanel = 'chat' | 'security';
+ 
+ export default function App() {
+   const { showToast, hideToast } = useToast();
+   const [maximizedPanel, setMaximizedPanel] = useState<'chat' | 'file' | null>(null);
+   const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('chat');
+   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
++  const [activeMainPanel, setActiveMainPanel] = useState<MainPanel>('chat');
+ 
+   // Custom Hooks
+   const {
+@@ -55,6 +59,15 @@ export default function App() {
+     handleKeyFileUpload
+   } = useAIChat();
+ 
++  const {
++    isAuditing,
++    auditResult,
++    auditError,
++    isGeneratingBlueprint: isGeneratingSecurityBlueprint,
++    runAudit,
++    downloadBlueprint: downloadSecurityBlueprint,
++  } = useSecurityAudit();
++
+   // Effects
+   useEffect(() => {
+     if (!selectedFile && maximizedPanel === 'file') {
+@@ -95,6 +108,37 @@ export default function App() {
+     setActiveMobileTab('preview');
+   };
+ 
++  const handleRunSecurityAudit = async () => {
++    if (!repoUrl) return;
++    const contextFiles = selectedFile ? [selectedFile] : [];
++    if (contextFiles.length === 0) {
++      showToast('Seleccione um ficheiro para auditar.', 'error');
++      return;
++    }
++    const projectName = repoUrl.split('github.com/')[1] || repoUrl;
++    setActiveMainPanel('security');
++    setActiveMobileTab('chat');
++    try {
++      await runAudit(contextFiles, projectName, apiKeys[keyIndex]);
++    } catch (err: any) {
++      showToast(err.message || 'Falha na auditoria de segurança.', 'error');
++    }
++  };
++
++  const handleDownloadSecurityBlueprint = async () => {
++    if (!repoUrl) return;
++    const projectName = repoUrl.split('github.com/')[1] || repoUrl;
++    const loadingToastId = showToast('Gerando blueprint de correcção...', 'loading', 0);
++    try {
++      await downloadSecurityBlueprint(projectName, apiKeys[keyIndex]);
++      hideToast(loadingToastId);
++      showToast('Blueprint de segurança gerado com sucesso!', 'success');
++    } catch (err: any) {
++      hideToast(loadingToastId);
++      showToast(err.message || 'Falha ao gerar blueprint de segurança.', 'error');
++    }
++  };
++
+   return (
+     <div className="h-screen flex flex-col overflow-hidden bg-[#0a0a0a] text-gray-100 font-sans selection:bg-indigo-500/30">
+       <Header 
+@@ -140,6 +184,14 @@ export default function App() {
+                       {isGeneratingBlueprint ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                       Blueprint
+                     </button>
++                    <button
++                      onClick={handleRunSecurityAudit}
++                      disabled={isAuditing}
++                      className="text-[10px] bg-red-600/10 hover:bg-red-600/20 text-red-300 border border-red-500/30 rounded px-2 py-1 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
++                    >
++                      {isAuditing ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldAlert className="w-3 h-3" />}
++                      Auditoria de Segurança
++                    </button>
+                   </div>
+                 </div>
+                 <FileTree files={files} onSelect={handleFileSelect} />
+@@ -190,6 +242,14 @@ export default function App() {
+                               {isGeneratingBlueprint ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />}
+                               Gerar Blueprint do Projeto
+                             </button>
++                            <button
++                              onClick={handleRunSecurityAudit}
++                              disabled={isAuditing}
++                              className="w-full text-[10px] bg-red-600/10 hover:bg-red-600/20 text-red-300 border border-red-500/30 rounded px-2 py-2 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
++                            >
++                              {isAuditing ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldAlert className="w-3 h-3" />}
++                              Auditoria de Segurança
++                            </button>
+                           </div>
+                         </div>
+                       </div>
+@@ -213,14 +273,61 @@ export default function App() {
+                     Erro: {repoError}
+                   </div>
+                 )}
+-                
+-                <ChatInterface 
+-                  messages={chatHistory} 
+-                  onSendMessage={sendMessage}
+-                  isThinking={isThinking}
+-                  isMaximized={maximizedPanel === 'chat'}
+-                  onToggleMaximize={() => setMaximizedPanel(prev => prev === 'chat' ? null : 'chat')}
+-                />
++
++                {maximizedPanel !== 'file' && (
++                  <div className="flex gap-1 bg-[#111] border border-white/10 rounded-lg p-1 w-fit shrink-0">
++                    <button
++                      onClick={() => setActiveMainPanel('chat')}
++                      className={cn(
++                        "text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors",
++                        activeMainPanel === 'chat' ? "bg-indigo-600/20 text-indigo-300" : "text-gray-400 hover:text-white"
++                      )}
++                    >
++                      <MessageSquare className="w-3.5 h-3.5" />
++                      Chat
++                    </button>
++                    <button
++                      onClick={() => setActiveMainPanel('security')}
++                      className={cn(
++                        "text-xs px-3 py-1.5 rounded-md flex items-center gap-1.5 transition-colors",
++                        activeMainPanel === 'security' ? "bg-red-600/20 text-red-300" : "text-gray-400 hover:text-white"
++                      )}
++                    >
++                      <ShieldAlert className="w-3.5 h-3.5" />
++                      Segurança
++                      {auditResult && (
++                        <span className={cn(
++                          "text-[10px] font-semibold px-1.5 rounded-full",
++                          auditResult.score >= 85 ? "bg-green-500/20 text-green-400" : auditResult.score >= 70 ? "bg-yellow-500/20 text-yellow-400" : "bg-red-500/20 text-red-400"
++                        )}>
++                          {auditResult.score}
++                        </span>
++                      )}
++                    </button>
++                  </div>
++                )}
++
++                {activeMainPanel === 'chat' ? (
++                  <ChatInterface
++                    messages={chatHistory}
++                    onSendMessage={sendMessage}
++                    isThinking={isThinking}
++                    isMaximized={maximizedPanel === 'chat'}
++                    onToggleMaximize={() => setMaximizedPanel(prev => prev === 'chat' ? null : 'chat')}
++                  />
++                ) : (
++                  <SecurityAuditPanel
++                    isAuditing={isAuditing}
++                    auditResult={auditResult}
++                    auditError={auditError}
++                    isGeneratingBlueprint={isGeneratingSecurityBlueprint}
++                    onRunAudit={handleRunSecurityAudit}
++                    onDownloadBlueprint={handleDownloadSecurityBlueprint}
++                    isMaximized={maximizedPanel === 'chat'}
++                    onToggleMaximize={() => setMaximizedPanel(prev => prev === 'chat' ? null : 'chat')}
++                    hasSelection={!!selectedFile}
++                  />
++                )}
+               </div>
+ 
+               {/* File Preview Pane */}
+diff --git a/src/app/api/security/audit/route.ts b/src/app/api/security/audit/route.ts
+new file mode 100644
+index 0000000..072f79f
+--- /dev/null
++++ b/src/app/api/security/audit/route.ts
+@@ -0,0 +1,131 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
++import { jsonError, AppError } from '@/app/api/_utils';
++import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/security/ruleset';
++import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
++
++export const runtime = 'nodejs';
++
++// Schema JSON forçado na resposta do Gemini — a IA só preenche os campos,
++// nunca decide severidade "livremente": ela deve escolher uma regra do
++// catálogo, e a severidade correspondente é resolvida no servidor.
++const AUDIT_RESPONSE_SCHEMA = {
++  type: 'object',
++  properties: {
++    findings: {
++      type: 'array',
++      items: {
++        type: 'object',
++        properties: {
++          rule: { type: 'string', description: 'ID exacto da regra do catálogo, ex: R10 ou CTF-R07' },
++          location: { type: 'string', description: 'ficheiro.ts : função() ou linha aproximada' },
++          description: { type: 'string', description: 'O que está errado e por que é explorável, em 1-3 frases' },
++          evidence: { type: 'string', description: 'Trecho de código que evidencia a falha, máx. 5 linhas' },
++        },
++        required: ['rule', 'location', 'description', 'evidence'],
++      },
++    },
++  },
++  required: ['findings'],
++};
++
++export async function POST(req: NextRequest) {
++  try {
++    const { contextFiles, apiKey, projectName } = await req.json();
++
++    if (!Array.isArray(contextFiles) || contextFiles.length === 0) {
++      throw new AppError('Nenhum ficheiro fornecido para auditoria', 400);
++    }
++
++    const ai = getAIClient(apiKey);
++    const fileContext = contextFiles
++      .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
++      .join('\n');
++
++    const prompt = `
++      Você é um auditor de segurança de código sénior. Analise o código abaixo
++      EXCLUSIVAMENTE contra o catálogo de regras fornecido. Não invente regras
++      novas nem severidades — use apenas os IDs do catálogo.
++
++      CATÁLOGO DE REGRAS:
++      ${ruleCatalogAsPrompt()}
++
++      CÓDIGO A AUDITAR:
++      ${fileContext}
++
++      Para cada vulnerabilidade real encontrada (não hipotética), identifique o ID
++      exacto da regra violada, a localização, uma descrição curta e um trecho de
++      evidência de no máximo 5 linhas. Se não houver nenhuma vulnerabilidade,
++      devolva um array "findings" vazio. Nunca produza código de exploração.
++      Responda em português (pt-MZ/pt-PT).
++    `;
++
++    const generationConfig = {
++      responseMimeType: 'application/json',
++      responseSchema: AUDIT_RESPONSE_SCHEMA,
++    };
++
++    let rawText: string;
++    try {
++      const response = await ai.models.generateContent({
++        model: ANALYST_MODEL,
++        contents: prompt,
++        config: generationConfig,
++      });
++      rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
++    } catch (error: any) {
++      if (error.status === 429 || error.message?.includes('429')) {
++        const response = await ai.models.generateContent({
++          model: FALLBACK_MODEL,
++          contents: prompt,
++          config: generationConfig,
++        });
++        rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
++      } else {
++        throw error;
++      }
++    }
++
++    let parsed: { findings: any[] };
++    try {
++      parsed = JSON.parse(rawText);
++    } catch {
++      throw new AppError('A IA devolveu uma resposta em formato inválido', 502, { rawText });
++    }
++
++    // Validação server-side: descarta findings com regra inexistente no
++    // catálogo (a IA nunca decide a severidade — vem sempre da regra real).
++    const findings: ScoredFinding[] = (parsed.findings || [])
++      .map((f: any) => {
++        const rule = getRuleById(String(f.rule || ''));
++        if (!rule) return null;
++        return {
++          rule: rule.id,
++          severity: rule.severity,
++          location: String(f.location || 'não especificado'),
++          description: String(f.description || rule.description),
++          evidence: String(f.evidence || ''),
++        } as ScoredFinding;
++      })
++      .filter((f: ScoredFinding | null): f is ScoredFinding => f !== null);
++
++    const invalidRuleIds = (parsed.findings || [])
++      .map((f: any) => String(f.rule || ''))
++      .filter((id: string) => !VALID_RULE_IDS.includes(id.toUpperCase()));
++
++    const scoreResult = computeScore(findings);
++
++    return NextResponse.json({
++      projectName: projectName || 'Projecto sem nome',
++      date: new Date().toISOString(),
++      findings: sortFindingsBySeverity(findings),
++      score: scoreResult.score,
++      counts: scoreResult.counts,
++      classification: scoreResult.classification,
++      classificationLabel: scoreResult.classificationLabel,
++      ...(invalidRuleIds.length > 0 ? { discardedInvalidRules: invalidRuleIds } : {}),
++    });
++  } catch (error) {
++    return jsonError(error);
++  }
++}
+diff --git a/src/app/api/security/blueprint/route.ts b/src/app/api/security/blueprint/route.ts
+new file mode 100644
+index 0000000..e6006b6
+--- /dev/null
++++ b/src/app/api/security/blueprint/route.ts
+@@ -0,0 +1,146 @@
++import { NextRequest, NextResponse } from 'next/server';
++import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
++import { jsonError, AppError } from '@/app/api/_utils';
++import { getRuleById } from '@/server/security/ruleset';
++import { ScoredFinding } from '@/server/security/scoring';
++import { renderSecurityBlueprint, FindingContent } from '@/server/security/blueprint-template';
++
++export const runtime = 'nodejs';
++
++// A IA só preenche conteúdo técnico por vulnerabilidade — nunca a estrutura,
++// score, tabelas ou índice do blueprint (isso é gerado em código, ver
++// server/security/blueprint-template.ts).
++const CONTENT_RESPONSE_SCHEMA = {
++  type: 'object',
++  properties: {
++    items: {
++      type: 'array',
++      items: {
++        type: 'object',
++        properties: {
++          index: { type: 'number' },
++          contexto: { type: 'string' },
++          porQueExploravel: { type: 'string' },
++          impacto: { type: 'string' },
++          diagrama: { type: 'string', description: 'Diagrama ASCII/Mermaid opcional, só se envolver múltiplos componentes' },
++          passos: {
++            type: 'array',
++            items: {
++              type: 'object',
++              properties: {
++                titulo: { type: 'string' },
++                linguagem: { type: 'string' },
++                codigo: { type: 'string' },
++                comentario: { type: 'string' },
++              },
++              required: ['titulo', 'linguagem', 'codigo'],
++            },
++          },
++          teste: {
++            type: 'object',
++            properties: {
++              linguagem: { type: 'string' },
++              comando: { type: 'string' },
++              codigo: { type: 'string' },
++              resultadoEsperado: { type: 'string' },
++            },
++            required: ['linguagem', 'codigo', 'resultadoEsperado'],
++          },
++          checklist: { type: 'array', items: { type: 'string' } },
++          esforco: { type: 'string', enum: ['Baixo', 'Médio', 'Alto'] },
++        },
++        required: ['index', 'contexto', 'porQueExploravel', 'impacto', 'passos', 'teste', 'checklist', 'esforco'],
++      },
++    },
++  },
++  required: ['items'],
++};
++
++export async function POST(req: NextRequest) {
++  try {
++    const { findings, contextFiles, projectName, apiKey } = await req.json();
++
++    if (!Array.isArray(findings) || findings.length === 0) {
++      // Nenhuma vulnerabilidade: blueprint "limpo", sem chamar a IA.
++      const md = renderSecurityBlueprint({
++        projectName: projectName || 'Projecto sem nome',
++        date: new Date().toLocaleDateString('pt-PT'),
++        findings: [],
++        contents: [],
++      });
++      return new NextResponse(md, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
++    }
++
++    const ai = getAIClient(apiKey);
++    const fileContext = (contextFiles || [])
++      .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
++      .join('\n');
++
++    const findingsForPrompt = (findings as ScoredFinding[]).map((f, i) => {
++      const rule = getRuleById(f.rule);
++      return `#${i} | Regra ${f.rule} (${rule?.name}) | Severidade ${f.severity}\nLocalização: ${f.location}\nDescrição: ${f.description}\nEvidência:\n${f.evidence}`;
++    }).join('\n\n');
++
++    const prompt = `
++      Você é um arquiteto de segurança sénior. Para CADA vulnerabilidade abaixo,
++      escreva a correcção completa e funcional. Use o "index" exacto de cada
++      vulnerabilidade na sua resposta.
++
++      CÓDIGO-FONTE RELEVANTE:
++      ${fileContext || '(não fornecido — baseie-se na descrição e evidência)'}
++
++      VULNERABILIDADES A CORRIGIR:
++      ${findingsForPrompt}
++
++      Para cada uma, produza: contexto, por que é explorável, impacto, passos de
++      implementação com código real e comentado, um teste de validação (jest/
++      vitest/pytest conforme a stack), checklist de deploy e estimativa de
++      esforço (Baixo/Médio/Alto). Nunca produza código de exploração, apenas de
++      correcção. Responda em português (pt-MZ/pt-PT).
++    `;
++
++    const generationConfig = {
++      responseMimeType: 'application/json',
++      responseSchema: CONTENT_RESPONSE_SCHEMA,
++    };
++
++    let rawText: string;
++    try {
++      const response = await ai.models.generateContent({
++        model: ANALYST_MODEL,
++        contents: prompt,
++        config: generationConfig,
++      });
++      rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
++    } catch (error: any) {
++      if (error.status === 429 || error.message?.includes('429')) {
++        const response = await ai.models.generateContent({
++          model: FALLBACK_MODEL,
++          contents: prompt,
++          config: generationConfig,
++        });
++        rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
++      } else {
++        throw error;
++      }
++    }
++
++    let parsed: { items: FindingContent[] };
++    try {
++      parsed = JSON.parse(rawText);
++    } catch {
++      throw new AppError('A IA devolveu conteúdo em formato inválido', 502, { rawText });
++    }
++
++    const md = renderSecurityBlueprint({
++      projectName: projectName || 'Projecto sem nome',
++      date: new Date().toLocaleDateString('pt-PT'),
++      findings: findings as ScoredFinding[],
++      contents: parsed.items || [],
++    });
++
++    return new NextResponse(md, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
++  } catch (error) {
++    return jsonError(error);
++  }
++}
+diff --git a/src/components/security/SecurityAuditPanel.tsx b/src/components/security/SecurityAuditPanel.tsx
+new file mode 100644
+index 0000000..ea76acc
+--- /dev/null
++++ b/src/components/security/SecurityAuditPanel.tsx
+@@ -0,0 +1,172 @@
++import { ShieldAlert, ShieldCheck, Loader2, FileDown, RefreshCw, Maximize2, Minimize2 } from 'lucide-react';
++import { cn } from '@/lib/utils';
++import { SecurityAuditResult, SecuritySeverity } from '@/types';
++
++const SEVERITY_STYLES: Record<SecuritySeverity, { badge: string; dot: string; label: string }> = {
++  CRITICO: { badge: 'bg-red-500/10 text-red-400 border-red-500/30', dot: 'bg-red-500', label: '🔴 CRÍTICO' },
++  ALTO: { badge: 'bg-orange-500/10 text-orange-400 border-orange-500/30', dot: 'bg-orange-500', label: '🟠 ALTO' },
++  MEDIO: { badge: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30', dot: 'bg-yellow-500', label: '🟡 MÉDIO' },
++};
++
++function scoreColor(score: number) {
++  if (score >= 85) return 'text-green-400';
++  if (score >= 70) return 'text-yellow-400';
++  return 'text-red-400';
++}
++
++export const SecurityAuditPanel = ({
++  isAuditing,
++  auditResult,
++  auditError,
++  isGeneratingBlueprint,
++  onRunAudit,
++  onDownloadBlueprint,
++  isMaximized,
++  onToggleMaximize,
++  hasSelection,
++}: {
++  isAuditing: boolean;
++  auditResult: SecurityAuditResult | null;
++  auditError: string | null;
++  isGeneratingBlueprint: boolean;
++  onRunAudit: () => void;
++  onDownloadBlueprint: () => void;
++  isMaximized: boolean;
++  onToggleMaximize: () => void;
++  hasSelection: boolean;
++}) => {
++  return (
++    <div className={cn(
++      "flex flex-col bg-[#111] rounded-xl border border-white/10 overflow-hidden transition-all duration-300",
++      isMaximized ? "h-full" : "h-full lg:h-[600px]"
++    )}>
++      <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between">
++        <div className="flex items-center gap-2">
++          <h3 className="font-medium flex items-center gap-2">
++            <ShieldAlert className="w-4 h-4 text-indigo-400" />
++            Auditoria de Segurança
++          </h3>
++          {isAuditing && (
++            <span className="text-xs text-indigo-400 animate-pulse flex items-center gap-1">
++              <Loader2 className="w-3 h-3 animate-spin" />
++              A auditar código-fonte...
++            </span>
++          )}
++        </div>
++        <button
++          onClick={onToggleMaximize}
++          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
++          title={isMaximized ? "Restaurar" : "Maximizar"}
++        >
++          {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
++        </button>
++      </div>
++
++      <div className="flex-1 overflow-y-auto p-4 space-y-4">
++        {!auditResult && !isAuditing && (
++          <div className="h-full flex flex-col items-center justify-center text-center gap-3 text-gray-400 px-6">
++            <ShieldAlert className="w-10 h-10 text-indigo-400/60" />
++            <p className="text-sm max-w-sm">
++              Audite o repositório contra o catálogo R01–R25 + CTF-R01–R11. Score,
++              severidade e classificação são calculados de forma determinística.
++            </p>
++            <button
++              onClick={onRunAudit}
++              disabled={!hasSelection}
++              className="mt-2 text-sm bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg px-4 py-2 flex items-center gap-2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
++            >
++              <ShieldAlert className="w-4 h-4" />
++              Executar Auditoria
++            </button>
++            {!hasSelection && (
++              <p className="text-[11px] text-gray-500">Seleccione um ficheiro ou aguarde o carregamento do repositório.</p>
++            )}
++          </div>
++        )}
++
++        {isAuditing && !auditResult && (
++          <div className="h-full flex flex-col items-center justify-center gap-3 text-gray-400">
++            <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
++            <p className="text-sm">A analisar contra o catálogo de regras...</p>
++          </div>
++        )}
++
++        {auditError && (
++          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3 rounded-xl text-xs">
++            Erro: {auditError}
++          </div>
++        )}
++
++        {auditResult && (
++          <>
++            {/* Score card */}
++            <div className="bg-[#151515] border border-white/10 rounded-xl p-4 flex items-center justify-between">
++              <div>
++                <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Score de Segurança</div>
++                <div className={cn("text-3xl font-bold", scoreColor(auditResult.score))}>
++                  {auditResult.score}<span className="text-base text-gray-500">/100</span>
++                </div>
++                <div className="text-xs text-gray-400 mt-1">{auditResult.classificationLabel}</div>
++              </div>
++              <div className="flex flex-col gap-1 items-end text-xs">
++                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />{auditResult.counts.CRITICO} crítico</span>
++                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-500" />{auditResult.counts.ALTO} alto</span>
++                <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-500" />{auditResult.counts.MEDIO} médio</span>
++              </div>
++            </div>
++
++            {/* Actions */}
++            <div className="flex gap-2">
++              <button
++                onClick={onRunAudit}
++                disabled={isAuditing}
++                className="flex-1 text-xs bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg px-3 py-2 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
++              >
++                {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
++                Reauditar
++              </button>
++              <button
++                onClick={onDownloadBlueprint}
++                disabled={isGeneratingBlueprint}
++                className="flex-1 text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 rounded-lg px-3 py-2 flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
++              >
++                {isGeneratingBlueprint ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileDown className="w-3.5 h-3.5" />}
++                Gerar Blueprint
++              </button>
++            </div>
++
++            {/* Findings list */}
++            {auditResult.findings.length === 0 ? (
++              <div className="flex flex-col items-center gap-2 text-center py-8 text-green-400">
++                <ShieldCheck className="w-8 h-8" />
++                <p className="text-sm">Nenhuma vulnerabilidade encontrada no código analisado.</p>
++              </div>
++            ) : (
++              <div className="space-y-2">
++                {auditResult.findings.map((f, i) => {
++                  const style = SEVERITY_STYLES[f.severity];
++                  return (
++                    <div key={i} className="bg-[#151515] border border-white/10 rounded-lg p-3">
++                      <div className="flex items-center justify-between gap-2 mb-1.5">
++                        <span className={cn("text-[10px] font-semibold px-2 py-0.5 rounded-full border", style.badge)}>
++                          {style.label} · {f.rule}
++                        </span>
++                        <span className="text-[10px] text-gray-500 truncate max-w-[45%]" title={f.location}>{f.location}</span>
++                      </div>
++                      <p className="text-xs text-gray-300 mb-2">{f.description}</p>
++                      {f.evidence && (
++                        <pre className="text-[10px] bg-[#0a0a0a] border border-white/5 rounded p-2 overflow-x-auto text-gray-400 whitespace-pre-wrap break-words">
++                          {f.evidence}
++                        </pre>
++                      )}
++                    </div>
++                  );
++                })}
++              </div>
++            )}
++          </>
++        )}
++      </div>
++    </div>
++  );
++};
+diff --git a/src/hooks/useSecurityAudit.ts b/src/hooks/useSecurityAudit.ts
+new file mode 100644
+index 0000000..15b29eb
+--- /dev/null
++++ b/src/hooks/useSecurityAudit.ts
+@@ -0,0 +1,73 @@
++import { useState, useCallback } from 'react';
++import { SecurityAuditResult } from '@/types';
++import { runSecurityAudit, generateSecurityBlueprint } from '@/services/security';
++import { limitTextContext } from '@/utils/textLimiter';
++
++export function useSecurityAudit() {
++  const [isAuditing, setIsAuditing] = useState(false);
++  const [auditResult, setAuditResult] = useState<SecurityAuditResult | null>(null);
++  const [auditError, setAuditError] = useState<string | null>(null);
++  const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
++  const [lastContextFiles, setLastContextFiles] = useState<{ path: string; content: string }[]>([]);
++
++  const runAudit = useCallback(async (
++    files: { path: string; content: string }[],
++    projectName: string,
++    apiKey?: string
++  ) => {
++    setIsAuditing(true);
++    setAuditError(null);
++    try {
++      const limitedFiles = files.map((f) => ({ path: f.path, content: limitTextContext(f.content) }));
++      setLastContextFiles(limitedFiles);
++      const result = await runSecurityAudit(limitedFiles, projectName, apiKey);
++      setAuditResult(result);
++      return result;
++    } catch (err) {
++      const message = err instanceof Error ? err.message : 'Erro desconhecido na auditoria.';
++      setAuditError(message);
++      throw err;
++    } finally {
++      setIsAuditing(false);
++    }
++  }, []);
++
++  const downloadBlueprint = useCallback(async (projectName: string, apiKey?: string) => {
++    if (!auditResult) return;
++    setIsGeneratingBlueprint(true);
++    try {
++      const markdown = await generateSecurityBlueprint(
++        auditResult.findings,
++        lastContextFiles,
++        projectName,
++        apiKey
++      );
++      const blob = new Blob([markdown], { type: 'text/markdown' });
++      const url = URL.createObjectURL(blob);
++      const a = document.createElement('a');
++      a.href = url;
++      a.download = `security-blueprint-${projectName.replace(/[^a-z0-9-]+/gi, '-')}.md`;
++      document.body.appendChild(a);
++      a.click();
++      document.body.removeChild(a);
++      URL.revokeObjectURL(url);
++    } finally {
++      setIsGeneratingBlueprint(false);
++    }
++  }, [auditResult, lastContextFiles]);
++
++  const resetAudit = useCallback(() => {
++    setAuditResult(null);
++    setAuditError(null);
++  }, []);
++
++  return {
++    isAuditing,
++    auditResult,
++    auditError,
++    isGeneratingBlueprint,
++    runAudit,
++    downloadBlueprint,
++    resetAudit,
++  };
++}
+diff --git a/src/server/security/blueprint-template.ts b/src/server/security/blueprint-template.ts
+new file mode 100644
+index 0000000..824f020
+--- /dev/null
++++ b/src/server/security/blueprint-template.ts
+@@ -0,0 +1,192 @@
++import { getRuleById, SEVERITY_LABEL } from './ruleset';
++import { ScoredFinding } from './scoring';
++import { computeScore, sortFindingsBySeverity } from './scoring';
++
++export interface FindingContent {
++  /** Índice do finding correspondente (na mesma ordem enviada à IA) */
++  index: number;
++  contexto: string;
++  porQueExploravel: string;
++  impacto: string;
++  diagrama?: string;
++  passos: { titulo: string; linguagem: string; codigo: string; comentario?: string }[];
++  teste: { linguagem: string; comando: string; codigo: string; resultadoEsperado: string };
++  checklist: string[];
++  esforco: 'Baixo' | 'Médio' | 'Alto';
++}
++
++function slug(text: string): string {
++  return text
++    .toLowerCase()
++    .normalize('NFD')
++    .replace(/[\u0300-\u036f]/g, '')
++    .replace(/[^a-z0-9]+/g, '-')
++    .replace(/(^-|-$)/g, '');
++}
++
++/**
++ * Renderiza o blueprint final em Markdown seguindo, campo a campo, a estrutura
++ * de references/blueprint-template.md. Apenas o CONTEÚDO técnico (explicações,
++ * código de correcção, testes) vem da IA — a estrutura, tabelas, índice e
++ * cabeçalhos são gerados aqui de forma determinística.
++ */
++export function renderSecurityBlueprint(params: {
++  projectName: string;
++  date: string;
++  findings: ScoredFinding[];
++  contents: FindingContent[];
++}): string {
++  const { projectName, date, findings, contents } = params;
++  const scoreResult = computeScore(findings);
++
++  // Emparelha cada finding com o seu conteúdo pela posição ORIGINAL (a mesma
++  // ordem em que foram enviados à IA), antes de reordenar por severidade —
++  // caso contrário o índice devolvido pela IA deixaria de corresponder.
++  const contentByOriginalIndex = new Map(contents.map((c) => [c.index, c]));
++  const paired = findings.map((f, originalIndex) => ({
++    finding: f,
++    content: contentByOriginalIndex.get(originalIndex),
++  }));
++  const ordered = sortFindingsBySeverity(
++    paired.map((p, i) => ({ ...p.finding, __pairIndex: i }))
++  ) as (ScoredFinding & { __pairIndex: number })[];
++
++  const indiceRows = ordered
++    .map((f, i) => {
++      const content = paired[f.__pairIndex].content;
++      const rule = getRuleById(f.rule);
++      const anchor = slug(`${f.rule}-${rule?.name || f.description}`);
++      return `| ${i + 1} | ${f.rule} | ${SEVERITY_LABEL[f.severity]} | ${f.location} | ${content?.esforco || 'Médio'} | [Ver secção](#${anchor}) |`;
++    })
++    .join('\n');
++
++  const vulnBlocks = ordered
++    .map((f) => {
++      const rule = getRuleById(f.rule);
++      const content = paired[f.__pairIndex].content;
++      const ruleName = rule?.name || 'Regra desconhecida';
++      const anchor = slug(`${f.rule}-${ruleName}`);
++
++      const passosMd = (content?.passos || [])
++        .map(
++          (p, idx) => `#### Passo ${idx + 1} — ${p.titulo}
++
++\`\`\`${p.linguagem}
++${p.comentario ? `// ${p.comentario}\n` : ''}${p.codigo}
++\`\`\``
++        )
++        .join('\n\n');
++
++      const diagramaBlock = content?.diagrama
++        ? `\n### Arquitectura da Correcção\n\n\`\`\`\n${content.diagrama}\n\`\`\`\n`
++        : '';
++
++      const checklistMd = (content?.checklist || [])
++        .map((item) => `- [ ] ${item}`)
++        .join('\n');
++
++      return `---
++
++## [${f.rule}] ${ruleName} — ${SEVERITY_LABEL[f.severity]} {#${anchor}}
++
++### Contexto
++
++**O que existe actualmente:**
++
++\`\`\`
++${f.evidence || '// (ver ficheiro indicado)'}
++\`\`\`
++
++**Localização:** \`${f.location}\`
++
++**Por que é explorável:**
++${content?.porQueExploravel || f.description}
++
++**Impacto potencial:**
++${content?.impacto || 'Não especificado.'}
++${diagramaBlock}
++### Implementação Passo a Passo
++
++${passosMd || '_(correcção não detalhada — reveja manualmente)_'}
++
++### Teste de Validação
++
++\`\`\`${content?.teste?.linguagem || 'typescript'}
++// Executar com: ${content?.teste?.comando || 'npm test'}
++${content?.teste?.codigo || '// (teste não gerado)'}
++\`\`\`
++
++**Resultado esperado:** ${content?.teste?.resultadoEsperado || 'A vulnerabilidade não deve mais ser explorável.'}
++
++### Checklist de Deploy
++
++${checklistMd || '- [ ] Rever correcção manualmente'}
++- [ ] Variáveis de ambiente actualizadas (se aplicável)
++- [ ] Revisão de código por par antes do merge
++`;
++    })
++    .join('\n');
++
++  return `# 🔐 Blueprint de Correcção de Segurança
++
++**Projecto:** ${projectName}
++**Data da auditoria:** ${date}
++**Auditado por:** Brada Iota — Security Audit Engine (baseado na Security Audit Skill v1.0)
++
++---
++
++## Score de Segurança
++
++| Métrica | Valor |
++|---------|-------|
++| Score actual | ${scoreResult.score}/100 |
++| Score esperado após correcções | 100/100 |
++| Vulnerabilidades CRÍTICO | ${scoreResult.counts.CRITICO} |
++| Vulnerabilidades ALTO | ${scoreResult.counts.ALTO} |
++| Vulnerabilidades MÉDIO | ${scoreResult.counts.MEDIO} |
++| **Resultado actual** | **${scoreResult.classificationLabel}** |
++
++---
++
++## Índice de Vulnerabilidades
++
++| # | Regra | Severidade | Localização | Esforço | Detalhe |
++|---|-------|-----------|-------------|---------|---------|
++${indiceRows || '| - | - | - | - | - | Nenhuma vulnerabilidade encontrada |'}
++
++> **Esforço:** Baixo (< 1h) · Médio (1–4h) · Alto (> 4h)
++
++${vulnBlocks || '\n_Nenhuma vulnerabilidade encontrada nesta auditoria._\n'}
++
++---
++
++## Checklist Global Pré-Deploy
++
++### Obrigatório (CRÍTICO e ALTO)
++- [ ] Todos os CRÍTICO corrigidos e testados
++- [ ] Todos os ALTO corrigidos e testados
++- [ ] Suite de testes de segurança a passar integralmente
++- [ ] Variáveis de ambiente auditadas — nenhum secret no código
++- [ ] Rate limiting activo em endpoints de autenticação
++
++### Recomendado (MÉDIO e Boas Práticas)
++- [ ] Falhas MÉDIO endereçadas ou agendadas
++- [ ] Testes de penetração com IA (R25) realizados
++- [ ] Documentação de regras de acesso actualizada
++
++---
++
++## Referências e Recursos
++
++| Recurso | Descrição |
++|---------|-----------|
++| [OWASP Top 10](https://owasp.org/www-project-top-ten/) | Top 10 vulnerabilidades mais críticas da web |
++| [Supabase RLS Docs](https://supabase.com/docs/guides/auth/row-level-security) | Configuração correcta de Row Level Security |
++| [zod](https://zod.dev/) | Validação de schema server-side em TypeScript |
++
++---
++
++_Blueprint gerado automaticamente pelo Brada Iota Security Audit Engine._
++_Score e classificação calculados deterministicamente — não pela IA._
++`;
++}
+diff --git a/src/server/security/ruleset.ts b/src/server/security/ruleset.ts
+new file mode 100644
+index 0000000..327687b
+--- /dev/null
++++ b/src/server/security/ruleset.ts
+@@ -0,0 +1,99 @@
++// Catálogo de Regras de Segurança
++// Fonte: Plataforma de Análise de Segurança de Código (v1.0) + Relatório CTF (v1.0)
++// Port tipado de references/ruleset.md — mantido como fonte única de verdade
++// (a IA nunca inventa severidade ou pontuação: ambas vêm daqui).
++
++export type Severity = 'CRITICO' | 'ALTO' | 'MEDIO';
++
++export interface SecurityRule {
++  id: string;
++  severity: Severity;
++  category: string;
++  name: string;
++  description: string;
++}
++
++export const SEVERITY_WEIGHT: Record<Severity, number> = {
++  CRITICO: 25,
++  ALTO: 10,
++  MEDIO: 5,
++};
++
++export const SEVERITY_LABEL: Record<Severity, string> = {
++  CRITICO: '🔴 CRÍTICO',
++  ALTO: '🟠 ALTO',
++  MEDIO: '🟡 MÉDIO',
++};
++
++export const RULESET: SecurityRule[] = [
++  // A.1 — Autenticação e Gerenciamento de Credenciais
++  { id: 'R01', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Hash de senha moderno', description: 'Senhas devem usar Argon2, bcrypt ou scrypt. MD5 e SHA-1 são proibidos.' },
++  { id: 'R02', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Sem enumeração de utilizadores', description: 'Resposta de autenticação deve ser sempre genérica ("credenciais inválidas"). Nunca revelar se o e-mail existe.' },
++  { id: 'R03', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Secrets fora do código', description: 'Nenhum secret, API key ou token no código-fonte ou em ficheiros versionados. Apenas variáveis de ambiente fora do repositório.' },
++  { id: 'R04', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Não criar autenticação própria', description: 'Usar soluções estabelecidas (Supabase Auth, Auth0, Keycloak, NextAuth). Autenticação manual aumenta superfície de ataque.' },
++  { id: 'R05', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Revogação de JWT', description: 'Implementar blocklist ou rotação de refresh tokens. Tokens sem revogação são inválidáveis mesmo após comprometimento.' },
++
++  // A.2 — Rate Limiting e Protecção contra Abuso
++  { id: 'R06', severity: 'ALTO', category: 'Rate Limiting e Abuso', name: 'Rate limiting por endpoint', description: 'Endpoints de autenticação, OTP e recuperação de senha precisam de limites mais rígidos com lockout progressivo.' },
++  { id: 'R07', severity: 'ALTO', category: 'Rate Limiting e Abuso', name: 'Limite de tamanho de input', description: 'Todo campo deve ter validação server-side de tamanho máximo. Validação apenas no front-end é insuficiente.' },
++  { id: 'R08', severity: 'CRITICO', category: 'Rate Limiting e Abuso', name: 'Protecção contra Race Condition', description: 'Operações financeiras e contadores devem usar transacções atómicas. Verificação separada da acção é vulnerável.' },
++
++  // A.3 — Validação e Sanitização de Dados
++  { id: 'R09', severity: 'CRITICO', category: 'Validação de Dados', name: 'Validação server-side obrigatória', description: 'Toda validação deve existir no servidor. Dados do cliente são sempre suspeitos.' },
++  { id: 'R10', severity: 'CRITICO', category: 'Validação de Dados', name: 'Protecção SQL Injection', description: 'Usar queries parametrizadas ou ORM com sanitização. Concatenação directa de input é proibida.' },
++  { id: 'R11', severity: 'ALTO', category: 'Validação de Dados', name: 'Protecção XSS', description: 'Conteúdo de utilizador renderizado na interface deve ser escapado/sanitizado.' },
++  { id: 'R12', severity: 'ALTO', category: 'Validação de Dados', name: 'Validação de upload (MIME + Magic Bytes)', description: 'Upload deve verificar MIME Type declarado E os Magic Bytes do ficheiro. Extensão sozinha é insuficiente.' },
++  { id: 'R13', severity: 'MEDIO', category: 'Validação de Dados', name: 'Restrição de URLs externas em imagens', description: 'Campos de URL de imagem devem restringir ao próprio domínio. URLs externas revelam IPs dos utilizadores.' },
++  { id: 'R14', severity: 'MEDIO', category: 'Validação de Dados', name: 'Limite de tamanho de URL', description: 'URLs do próprio domínio ainda precisam de limite de tamanho, incluindo query strings.' },
++
++  // A.4 — Controlo de Acesso e Autorização
++  { id: 'R15', severity: 'CRITICO', category: 'Controlo de Acesso', name: 'Protecção IDOR', description: 'Toda operação em recursos deve verificar no back-end se o utilizador tem autorização. Nunca confiar em IDs do cliente.' },
++  { id: 'R16', severity: 'ALTO', category: 'Controlo de Acesso', name: 'Regras de acesso explícitas', description: 'Regras de negócio de acesso devem ser explicitamente implementadas (ex.: só compradores acessam conteúdo pago).' },
++  { id: 'R17', severity: 'CRITICO', category: 'Controlo de Acesso', name: 'RLS configurado restritivamente', description: 'Em Supabase/PostgreSQL, políticas RLS devem ser restritivas por defeito. RLS permissivo é das falhas mais exploradas.' },
++  { id: 'R18', severity: 'ALTO', category: 'Controlo de Acesso', name: 'Protecção Mass Assignment', description: 'API não deve aceitar campos sensíveis (roles, saldo, status de pagamento) no body sem whitelist explícita.' },
++
++  // A.5 — Integridade da Lógica de Negócio
++  { id: 'R19', severity: 'CRITICO', category: 'Lógica de Negócio', name: 'Consistência em transacções financeiras', description: 'Operações financeiras exigem transacções ACID. Prevenir exploração por compras/reembolsos simultâneos.' },
++  { id: 'R20', severity: 'ALTO', category: 'Lógica de Negócio', name: 'Verificação de pré-condições', description: 'Fluxos de reembolso, saque e cancelamento devem verificar todas as pré-condições antes de executar.' },
++  { id: 'R21', severity: 'ALTO', category: 'Lógica de Negócio', name: 'Detecção automática de fraude', description: 'Operações de alto risco não podem depender exclusivamente de revisão humana. Implementar regras automáticas.' },
++
++  // A.6 — Práticas de Desenvolvimento Seguro
++  { id: 'R22', severity: 'CRITICO', category: 'Práticas de Desenvolvimento', name: 'Defesa em profundidade', description: 'Cada camada (front-end, API, BD) deve ser independentemente segura. Falha numa camada não deve comprometer as restantes.' },
++  { id: 'R23', severity: 'ALTO', category: 'Práticas de Desenvolvimento', name: 'Testes de segurança automatizados', description: 'Testes devem cobrir: acesso não autorizado, Race Condition, inputs maliciosos, bypass de autorização.' },
++  { id: 'R24', severity: 'ALTO', category: 'Práticas de Desenvolvimento', name: 'Segurança no prompt (projectos IA)', description: 'Requisitos de segurança devem estar no prompt inicial. Segurança adicionada depois é sempre menos eficaz.' },
++  { id: 'R25', severity: 'MEDIO', category: 'Práticas de Desenvolvimento', name: 'IA como atacante', description: 'Usar IA para tentar comprometer o sistema durante o desenvolvimento. Resolve ~80% das vulnerabilidades comuns.' },
++
++  // B.1 — Autenticação e Controlo de Sessão (CTF)
++  { id: 'CTF-R01', severity: 'CRITICO', category: 'CTF — Autenticação e Sessão', name: 'Secrets JWT únicos por subsistema', description: 'JWT compartilhado entre subsistemas permite forjar tokens de outros utilizadores. Cada subsistema deve ter o seu secret e escopo de validação.' },
++  { id: 'CTF-R02', severity: 'ALTO', category: 'CTF — Autenticação e Sessão', name: 'Unicidade global de username', description: 'Usernames duplicados entre subsistemas + JWT partilhado = account takeover. Usernames devem ser únicos globalmente ou o escopo do token delimitado.' },
++  { id: 'CTF-R03', severity: 'CRITICO', category: 'CTF — Autenticação e Sessão', name: 'Secrets distintos por ambiente', description: 'Ambientes de homologação com o mesmo secret JWT de produção permitem geração de tokens válidos para utilizadores reais.' },
++
++  // B.2 — Validação de Dados e Lógica de Negócio (CTF)
++  { id: 'CTF-R04', severity: 'CRITICO', category: 'CTF — Validação e Lógica', name: 'Rejeitar valores fracionados onde não permitidos', description: 'Input como 7.5 numa posição de jogo inteiro deve ser rejeitado explicitamente. Comparação falha = vantagem infinita.' },
++  { id: 'CTF-R05', severity: 'CRITICO', category: 'CTF — Validação e Lógica', name: 'Lógica de resultado exclusivamente no servidor', description: 'Resultado calculado no front-end (ex.: seed de timestamp) pode ser previsto. Toda lógica determinística deve estar no servidor.' },
++  { id: 'CTF-R06', severity: 'CRITICO', category: 'CTF — Validação e Lógica', name: 'Não expor chaves de criptografia no cliente', description: 'Chave de criptografia no JavaScript do cliente equivale a dado em texto claro. Secrets e chaves devem existir apenas no servidor.' },
++
++  // B.3 — Controlo de Taxa e Race Conditions (CTF)
++  { id: 'CTF-R07', severity: 'CRITICO', category: 'CTF — Rate Limiting e Race Conditions', name: 'Ler estado DENTRO da Transaction', description: 'Saldo consultado antes do bloco Transaction permite Race Condition: múltiplas requisições lêem saldo positivo antes de qualquer débito.' },
++  { id: 'CTF-R08', severity: 'CRITICO', category: 'CTF — Rate Limiting e Race Conditions', name: 'Rate limiting em OTP', description: 'OTP curto sem rate limit permite brute force em segundos. OTP deve ter: min 6 dígitos, limite de tentativas, lockout temporário.' },
++  { id: 'CTF-R09', severity: 'ALTO', category: 'CTF — Rate Limiting e Race Conditions', name: 'CAPTCHA e bloqueio por IP em endpoints críticos', description: 'Sem CAPTCHA, ataques de brute force paralelo executam em segundos. Login, OTP e recuperação de senha devem ter CAPTCHA e bloqueio progressivo por IP.' },
++
++  // B.4 — Controlo de Acesso e Obscuridade (CTF)
++  { id: 'CTF-R10', severity: 'ALTO', category: 'CTF — Acesso e Obscuridade', name: 'Rotas escondidas não substituem autenticação', description: 'Painéis admin em rotas obscuras podem ser localizados via wordlist. Rotas obscuras podem ser camada extra, mas acesso deve ter MFA robusto.' },
++  { id: 'CTF-R11', severity: 'ALTO', category: 'CTF — Acesso e Obscuridade', name: 'Seeds de jogo geradas e validadas no servidor', description: 'Seeds geradas no front-end são previsíveis. Devem ser geradas no servidor, vinculadas à sessão, invalidadas após uso.' },
++];
++
++const RULE_MAP = new Map(RULESET.map((r) => [r.id, r]));
++
++export function getRuleById(id: string): SecurityRule | undefined {
++  return RULE_MAP.get(id.toUpperCase());
++}
++
++/** Catálogo formatado como texto compacto para injectar no prompt da IA. */
++export function ruleCatalogAsPrompt(): string {
++  return RULESET.map(
++    (r) => `${r.id} [${r.severity}] ${r.name} — ${r.description}`
++  ).join('\n');
++}
++
++export const VALID_RULE_IDS = RULESET.map((r) => r.id);
+diff --git a/src/server/security/scoring.ts b/src/server/security/scoring.ts
+new file mode 100644
+index 0000000..a52f8bc
+--- /dev/null
++++ b/src/server/security/scoring.ts
+@@ -0,0 +1,76 @@
++import { SEVERITY_WEIGHT, Severity } from './ruleset';
++
++export interface ScoredFinding {
++  rule: string;
++  severity: Severity;
++  location: string;
++  description: string;
++  evidence: string;
++}
++
++export type Classification =
++  | 'APROVADO_COM_DISTINCAO'
++  | 'APROVADO_COM_RESSALVAS'
++  | 'APROVADO_CONDICIONALMENTE'
++  | 'REPROVADO';
++
++export const CLASSIFICATION_LABEL: Record<Classification, string> = {
++  APROVADO_COM_DISTINCAO: 'Aprovado com distinção',
++  APROVADO_COM_RESSALVAS: 'Aprovado com ressalvas',
++  APROVADO_CONDICIONALMENTE: 'Aprovado condicionalmente',
++  REPROVADO: 'Reprovado — não apto para produção',
++};
++
++export interface ScoreResult {
++  score: number;
++  counts: Record<Severity, number>;
++  classification: Classification;
++  classificationLabel: string;
++}
++
++/**
++ * Cálculo de pontuação 100% determinístico — nunca delegado ao modelo de IA,
++ * para garantir que o mesmo conjunto de findings produz sempre o mesmo score.
++ *
++ * Regras (iguais ao ruleset.md):
++ *  - CRÍTICO: -25 pts, aprovação mínima exige ZERO CRÍTICO
++ *  - ALTO: -10 pts, aprovação mínima >= 70 pts
++ *  - MÉDIO: -5 pts, aprovação total exige >= 85 pts
++ */
++export function computeScore(findings: { severity: Severity }[]): ScoreResult {
++  const counts: Record<Severity, number> = { CRITICO: 0, ALTO: 0, MEDIO: 0 };
++  for (const f of findings) {
++    if (counts[f.severity] !== undefined) counts[f.severity]++;
++  }
++
++  const deduction =
++    counts.CRITICO * SEVERITY_WEIGHT.CRITICO +
++    counts.ALTO * SEVERITY_WEIGHT.ALTO +
++    counts.MEDIO * SEVERITY_WEIGHT.MEDIO;
++
++  const score = Math.max(0, 100 - deduction);
++
++  let classification: Classification;
++  if (counts.CRITICO > 0 || score < 70) {
++    classification = 'REPROVADO';
++  } else if (score === 100) {
++    classification = 'APROVADO_COM_DISTINCAO';
++  } else if (score >= 85) {
++    classification = 'APROVADO_COM_RESSALVAS';
++  } else {
++    classification = 'APROVADO_CONDICIONALMENTE';
++  }
++
++  return {
++    score,
++    counts,
++    classification,
++    classificationLabel: CLASSIFICATION_LABEL[classification],
++  };
++}
++
++const SEVERITY_ORDER: Record<Severity, number> = { CRITICO: 0, ALTO: 1, MEDIO: 2 };
++
++export function sortFindingsBySeverity<T extends { severity: Severity }>(findings: T[]): T[] {
++  return [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
++}
+diff --git a/src/services/security.ts b/src/services/security.ts
+new file mode 100644
+index 0000000..d3bf507
+--- /dev/null
++++ b/src/services/security.ts
+@@ -0,0 +1,48 @@
++import { SecurityAuditResult, SecurityFinding } from '@/types';
++
++async function readError(response: Response, fallback: string): Promise<string> {
++  try {
++    const body = await response.json();
++    if (body.error) return typeof body.error === 'string' ? body.error : JSON.stringify(body.error);
++  } catch {
++    // ignore
++  }
++  return fallback;
++}
++
++export async function runSecurityAudit(
++  contextFiles: { path: string; content: string }[],
++  projectName?: string,
++  apiKey?: string
++): Promise<SecurityAuditResult> {
++  const response = await fetch('/api/security/audit', {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ contextFiles, projectName, apiKey }),
++  });
++
++  if (!response.ok) {
++    throw new Error(`Auditoria de segurança falhou: ${await readError(response, response.statusText)}`);
++  }
++
++  return response.json();
++}
++
++export async function generateSecurityBlueprint(
++  findings: SecurityFinding[],
++  contextFiles: { path: string; content: string }[],
++  projectName?: string,
++  apiKey?: string
++): Promise<string> {
++  const response = await fetch('/api/security/blueprint', {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ findings, contextFiles, projectName, apiKey }),
++  });
++
++  if (!response.ok) {
++    throw new Error(`Geração do blueprint falhou: ${await readError(response, response.statusText)}`);
++  }
++
++  return response.text();
++}
+diff --git a/src/types.ts b/src/types.ts
+index 43f5bac..ee12eb6 100644
+--- a/src/types.ts
++++ b/src/types.ts
+@@ -22,3 +22,24 @@ export interface AnalysisMessage {
+   isThinking?: boolean;
+   relatedLinks?: { title: string; url: string }[];
+ }
++
++export type SecuritySeverity = 'CRITICO' | 'ALTO' | 'MEDIO';
++
++export interface SecurityFinding {
++  rule: string;
++  severity: SecuritySeverity;
++  location: string;
++  description: string;
++  evidence: string;
++}
++
++export interface SecurityAuditResult {
++  projectName: string;
++  date: string;
++  findings: SecurityFinding[];
++  score: number;
++  counts: Record<SecuritySeverity, number>;
++  classification: string;
++  classificationLabel: string;
++  discardedInvalidRules?: string[];
++}
