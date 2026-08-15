@@ -3,7 +3,11 @@ import { SecurityAuditResult, SecurityFinding } from '@/types';
 async function readError(response: Response, fallback: string): Promise<string> {
   try {
     const body = await response.json();
+    if (body.details && typeof body.details === 'string') {
+      return `${body.error || fallback} ${body.details}`;
+    }
     if (body.error) return typeof body.error === 'string' ? body.error : JSON.stringify(body.error);
+    if (body.message) return typeof body.message === 'string' ? body.message : JSON.stringify(body.message);
   } catch {
     // ignore
   }

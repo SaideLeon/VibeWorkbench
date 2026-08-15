@@ -7,6 +7,8 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import DOMPurify from 'dompurify';
 import { cn } from '@/lib/utils';
 import { AnalysisMessage } from '@/types';
+import { GeminiQuotaNotice } from '@/components/ui/GeminiQuotaNotice';
+import { parseGeminiErrorInfo } from '@/utils/ai-errors';
 
 const CodeBlock = ({ language, children, ...props }: any) => {
   const [isCopied, setIsCopied] = useState(false);
@@ -113,67 +115,71 @@ export const ChatInterface = ({
               "max-w-[80%] rounded-2xl p-4 text-sm leading-relaxed overflow-hidden",
               msg.role === 'user' ? "bg-gray-800 text-white" : "bg-[#1a1a1a] border border-white/10 text-gray-200"
             )}>
-              <div className="prose prose-invert prose-sm max-w-none break-words">
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    pre: ({ children }) => <>{children}</>,
-                    code(props) {
-                      const {children, className, node, ref, ...rest} = props
-                      const match = /language-(\w+)/.exec(className || '')
-                      const codeStr = String(children)
-                      const isBlock = Boolean(match) || codeStr.includes('\n')
-                      return isBlock ? (
-                        <CodeBlock language={match ? match[1] : 'text'} children={children} {...rest} />
-                      ) : (
-                        <code {...rest} ref={ref} className={className}>
+              {msg.role === 'model' && parseGeminiErrorInfo(msg.content).isQuota ? (
+                <GeminiQuotaNotice error={msg.content} compact />
+              ) : (
+                <div className="prose prose-invert prose-sm max-w-none break-words">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      pre: ({ children }) => <>{children}</>,
+                      code(props) {
+                        const {children, className, node, ref, ...rest} = props
+                        const match = /language-(\w+)/.exec(className || '')
+                        const codeStr = String(children)
+                        const isBlock = Boolean(match) || codeStr.includes('\n')
+                        return isBlock ? (
+                          <CodeBlock language={match ? match[1] : 'text'} children={children} {...rest} />
+                        ) : (
+                          <code {...rest} ref={ref} className={className}>
+                            {children}
+                          </code>
+                        )
+                      },
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-3 border border-white/10 rounded-lg bg-[#141414]">
+                          <table className="w-full text-left text-xs border-collapse min-w-[320px]">
+                            {children}
+                          </table>
+                        </div>
+                      ),
+                      thead: ({ children }) => (
+                        <thead className="bg-white/5 text-gray-200 font-semibold text-[11px] uppercase tracking-wider border-b border-white/10">
                           {children}
-                        </code>
+                        </thead>
+                      ),
+                      tbody: ({ children }) => (
+                        <tbody className="divide-y divide-white/5 bg-[#181818]">
+                          {children}
+                        </tbody>
+                      ),
+                      tr: ({ children }) => (
+                        <tr className="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
+                          {children}
+                        </tr>
+                      ),
+                      th: ({ children }) => (
+                        <th className="px-3 py-2 text-gray-200 font-medium border-r border-white/5 last:border-r-0">
+                          {children}
+                        </th>
+                      ),
+                      td: ({ children }) => (
+                        <td className="px-3 py-2 text-gray-300 border-r border-white/5 last:border-r-0">
+                          {children}
+                        </td>
+                      ),
+                      p: ({ children }) => (
+                        <div className="leading-relaxed mb-2.5">
+                          {children}
+                        </div>
                       )
-                    },
-                    table: ({ children }) => (
-                      <div className="overflow-x-auto my-3 border border-white/10 rounded-lg bg-[#141414]">
-                        <table className="w-full text-left text-xs border-collapse min-w-[320px]">
-                          {children}
-                        </table>
-                      </div>
-                    ),
-                    thead: ({ children }) => (
-                      <thead className="bg-white/5 text-gray-200 font-semibold text-[11px] uppercase tracking-wider border-b border-white/10">
-                        {children}
-                      </thead>
-                    ),
-                    tbody: ({ children }) => (
-                      <tbody className="divide-y divide-white/5 bg-[#181818]">
-                        {children}
-                      </tbody>
-                    ),
-                    tr: ({ children }) => (
-                      <tr className="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
-                        {children}
-                      </tr>
-                    ),
-                    th: ({ children }) => (
-                      <th className="px-3 py-2 text-gray-200 font-medium border-r border-white/5 last:border-r-0">
-                        {children}
-                      </th>
-                    ),
-                    td: ({ children }) => (
-                      <td className="px-3 py-2 text-gray-300 border-r border-white/5 last:border-r-0">
-                        {children}
-                      </td>
-                    ),
-                    p: ({ children }) => (
-                      <div className="leading-relaxed mb-2.5">
-                        {children}
-                      </div>
-                    )
-                  }}
-                >
-                  {/* Sanitize content before rendering */}
-                  {DOMPurify.sanitize(msg.content)}
-                </ReactMarkdown>
-              </div>
+                    }}
+                  >
+                    {/* Sanitize content before rendering */}
+                    {DOMPurify.sanitize(msg.content)}
+                  </ReactMarkdown>
+                </div>
+              )}
               
               {/* Grounding / Links */}
               {msg.relatedLinks && msg.relatedLinks.length > 0 && (

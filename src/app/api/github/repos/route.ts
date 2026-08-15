@@ -14,16 +14,23 @@ export async function GET(req: NextRequest) {
       });
     }
 
+    const cleanToken = userToken.trim();
     const response = await fetch('https://api.github.com/user/repos?sort=updated&per_page=100&type=all', {
       headers: {
-        'User-Agent': 'Brada-Iota',
+        'User-Agent': 'Vibe-Workbench',
         Accept: 'application/vnd.github.v3+json',
-        Authorization: `Bearer ${userToken}`,
+        Authorization: `Bearer ${cleanToken}`,
       },
     });
 
     if (!response.ok) {
-      throw new AppError('Failed to fetch repositories', response.status, await extractGithubErrorDetails(response));
+      const details = await extractGithubErrorDetails(response);
+      const errorMessage = response.status === 401
+        ? 'Token do GitHub inválido ou expirado. Remova ou atualize o token nas configurações.'
+        : response.status === 403
+        ? 'Limite de requisições atingido ou permissões insuficientes no token GitHub.'
+        : 'Falha ao buscar repositórios do GitHub';
+      throw new AppError(errorMessage, response.status, details);
     }
 
     return NextResponse.json(await response.json());

@@ -89,10 +89,18 @@ export default function App() {
     }
   }, [selectedFile, maximizedPanel, activeMobileTab]);
 
+  useEffect(() => {
+    if (repoError) {
+      showToast(repoError, 'error', 6000);
+    }
+  }, [repoError, showToast]);
+
   // Handlers
   const handleAnalyze = async (url: string) => {
-    await analyzeRepository(url, performInitialAnalysis);
-    setActiveMobileTab('chat');
+    const res = await analyzeRepository(url, performInitialAnalysis);
+    if (res) {
+      setActiveMobileTab('chat');
+    }
   };
 
   const handleFileSelect = async (path: string) => {

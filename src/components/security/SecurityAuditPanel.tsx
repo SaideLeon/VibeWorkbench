@@ -24,6 +24,7 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '@/lib/utils';
 import { SecurityAuditResult, SecuritySeverity } from '@/types';
 import { AuditProgress } from '@/hooks/useSecurityAudit';
+import { GeminiQuotaNotice } from '@/components/ui/GeminiQuotaNotice';
 
 const SEVERITY_STYLES: Record<SecuritySeverity, { badge: string; dot: string; label: string }> = {
   CRITICO: { badge: 'bg-red-500/10 text-red-400 border-red-500/30', dot: 'bg-red-500', label: '🔴 CRÍTICO' },
@@ -252,14 +253,13 @@ export const SecurityAuditPanel = ({
         )}
 
         {/* Audit Error State */}
-        {auditError && (
-          <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-3.5 rounded-xl text-xs flex items-start gap-2">
-            <ShieldAlert className="w-4 h-4 shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold block mb-0.5">Falha na auditoria:</span>
-              <span>{auditError}</span>
-            </div>
-          </div>
+        {auditError && !isAuditing && (
+          <GeminiQuotaNotice
+            error={auditError}
+            onRetry={() => onRunAudit()}
+            isRetrying={isAuditing}
+            className="my-1"
+          />
         )}
 
         {/* Initial Empty State */}

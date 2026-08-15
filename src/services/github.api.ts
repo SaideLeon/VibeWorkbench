@@ -14,7 +14,7 @@ export const githubApi = {
 
     const res = await fetch('/api/github/repos', { headers });
     if (!res.ok) {
-        let errorMsg = "Falha ao buscar repositórios";
+        let errorMsg = "Falha ao buscar repositórios do GitHub";
         try {
             const errData = await res.json();
             errorMsg = errData.error || errData.message || errorMsg;
@@ -37,13 +37,15 @@ export const githubApi = {
         const errData = await res.json();
         errorMsg = errData.error || errData.message || errorMsg;
       } catch {
-        errorMsg += ` (${res.status} ${res.statusText})`;
-      }
-      
-      if (res.status === 404) {
-        errorMsg = "Repositório não encontrado ou privado. Esta ferramenta suporta apenas repositórios públicos.";
-      } else if (res.status === 403) {
-        errorMsg = "Limite de taxa da API do GitHub excedido. Tente novamente mais tarde.";
+        if (res.status === 404) {
+          errorMsg = `Repositório "${owner}/${repo}" não encontrado ou privado. Se for privado, adicione um GitHub Token nas configurações.`;
+        } else if (res.status === 401) {
+          errorMsg = "Token do GitHub inválido ou expirado. Atualize ou remova seu token nas configurações.";
+        } else if (res.status === 403) {
+          errorMsg = "Limite de requisições da API do GitHub excedido. Adicione um GitHub Token nas configurações para aumentar o limite.";
+        } else {
+          errorMsg += ` (${res.status} ${res.statusText})`;
+        }
       }
       
       throw new Error(errorMsg);
@@ -51,7 +53,7 @@ export const githubApi = {
 
     const contentType = res.headers.get("content-type");
     if (!contentType || !contentType.includes("application/json")) {
-      throw new Error("Recebeu resposta não-JSON do servidor. Verifique se o servidor está rodando corretamente.");
+      throw new Error("Recebeu resposta não-JSON do servidor.");
     }
 
     return res.json();
@@ -66,7 +68,16 @@ export const githubApi = {
     const res = await fetch(`/api/github/content?owner=${owner}&repo=${repo}&path=${path}&branch=${branch}`, {
       headers: getAuthHeaders()
     });
-    if (!res.ok) throw new Error("Falha ao buscar arquivo");
+    if (!res.ok) {
+      let errorMsg = `Falha ao carregar o arquivo "${path}"`;
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        // Ignored
+      }
+      throw new Error(errorMsg);
+    }
     
     const text = await res.text();
     fileCache.set(cacheKey, text);

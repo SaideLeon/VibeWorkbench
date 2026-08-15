@@ -2,12 +2,14 @@ import { NextRequest } from 'next/server';
 
 export function getGithubHeaders(req: NextRequest) {
   const headers: Record<string, string> = {
-    'User-Agent': 'Brada-Iota',
+    'User-Agent': 'Vibe-Workbench',
     Accept: 'application/vnd.github.v3+json',
   };
 
   const userToken = req.headers.get('x-github-token');
-  if (userToken) headers.Authorization = `Bearer ${userToken}`;
+  const envToken = process.env.GITHUB_TOKEN || process.env.GH_TOKEN;
+  const tokenToUse = (userToken && userToken.trim()) || (envToken && envToken.trim());
+  if (tokenToUse) headers.Authorization = `Bearer ${tokenToUse}`;
 
   return headers;
 }

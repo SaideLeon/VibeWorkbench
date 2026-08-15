@@ -16,10 +16,14 @@ export async function analyzeCode(
   if (!response.ok) {
     let errorMessage = response.statusText;
     try {
-        const errorBody = await response.json();
-        if (errorBody.error) errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
-    } catch (e) {
-        // Ignore JSON parse error
+      const errorBody = await response.json();
+      if (errorBody.details && typeof errorBody.details === 'string') {
+        errorMessage = `${errorBody.error || errorMessage} ${errorBody.details}`;
+      } else if (errorBody.error) {
+        errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
+      }
+    } catch {
+      // Ignore JSON parse error
     }
     throw new Error(`AI Analysis failed: ${errorMessage}`);
   }
@@ -47,10 +51,14 @@ export async function thinkAndSuggest(
   if (!response.ok) {
     let errorMessage = response.statusText;
     try {
-        const errorBody = await response.json();
-        if (errorBody.error) errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
-    } catch (e) {
-        // Ignore JSON parse error
+      const errorBody = await response.json();
+      if (errorBody.details && typeof errorBody.details === 'string') {
+        errorMessage = `${errorBody.error || errorMessage} ${errorBody.details}`;
+      } else if (errorBody.error) {
+        errorMessage = typeof errorBody.error === 'string' ? errorBody.error : JSON.stringify(errorBody.error);
+      }
+    } catch {
+      // Ignore JSON parse error
     }
     throw new Error(`AI Thinking failed: ${errorMessage}`);
   }

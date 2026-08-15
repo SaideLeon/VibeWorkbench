@@ -38,6 +38,24 @@ export function jsonError(error: unknown) {
     );
   }
 
+  const rawMessage = error instanceof Error ? error.message : String(error || 'Internal Server Error');
+  const isQuotaError = 
+    /429|RESOURCE_EXHAUSTED|Quota exceeded|rate-limits|generativelanguage\.googleapis\.com.*requests|quotaMetric|exceeded your current quota/i.test(rawMessage) ||
+    (typeof error === 'object' && error !== null && ('status' in error && (error as any).status === 429));
+
+  if (isQuotaError) {
+    console.warn('[API Quota Exceeded]', { rawMessage });
+    return NextResponse.json(
+      {
+        error: 'Limite de cota da API Gemini excedido temporariamente. Aguarde a renovação dos créditos da camada gratuita ou adicione sua própria chave de API.',
+        errorType: 'QUOTA_EXCEEDED',
+        code: 429,
+        details: rawMessage,
+      },
+      { status: 429 },
+    );
+  }
+
   const message = error instanceof Error ? error.message : 'Internal Server Error';
   const debugId = `api_${Date.now().toString(36)}`;
 

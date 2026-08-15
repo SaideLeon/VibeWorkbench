@@ -189,14 +189,28 @@ export const RepoInput = ({ onAnalyze, isLoading }: { onAnalyze: (url: string) =
                 <p className="text-gray-500 text-sm animate-pulse">Sincronizando com o GitHub...</p>
               </div>
             ) : repoError ? (
-              <div className="flex flex-col items-center justify-center py-10 gap-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                <p className="text-red-400 text-sm font-medium">{repoError}</p>
-                <button 
-                  onClick={loadUserRepos}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm transition-colors"
-                >
-                  Tentar novamente
-                </button>
+              <div className="flex flex-col items-center justify-center py-10 gap-4 bg-red-500/10 border border-red-500/20 rounded-xl px-4 text-center">
+                <p className="text-red-400 text-sm font-medium max-w-md">{repoError}</p>
+                <div className="flex flex-wrap items-center justify-center gap-3">
+                  <button 
+                    onClick={loadUserRepos}
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-sm transition-colors"
+                  >
+                    Tentar novamente
+                  </button>
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem('github_token');
+                      setHasToken(false);
+                      setUserRepos([]);
+                      setRepoError(null);
+                      window.dispatchEvent(new Event('github_token_updated'));
+                    }}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-gray-300 rounded-lg text-sm transition-colors"
+                  >
+                    Remover Token
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="space-y-6">

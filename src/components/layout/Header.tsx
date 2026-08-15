@@ -140,8 +140,15 @@ export const Header = ({ apiKeys = [], keyIndex = 0, onUploadKeys, onLogoClick }
         window.dispatchEvent(new Event('github_token_updated'));
       }
     };
+    const handleOpenSettings = () => {
+      setIsSettingsOpen(true);
+    };
     window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
+    window.addEventListener('open_settings_modal', handleOpenSettings);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      window.removeEventListener('open_settings_modal', handleOpenSettings);
+    };
   }, []);
 
   return (

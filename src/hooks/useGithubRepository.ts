@@ -3,6 +3,25 @@ import { FileNode } from '@/types';
 import { githubApi } from '@/services/github.api';
 import { getFolderDescendantFiles, getAllCodeFiles, isCodeFile } from '@/utils/file-selection';
 
+export function parseGithubUrl(rawUrl: string): { owner: string; repo: string } | null {
+  if (!rawUrl || typeof rawUrl !== 'string') return null;
+  const clean = rawUrl.trim().replace(/\.git\/?$/, '').replace(/\/+$/, '');
+  
+  // Format 1: full github.com URL (including /tree/branch/...)
+  const fullMatch = clean.match(/(?:https?:\/\/)?(?:www\.)?github\.com\/([^/\s]+)\/([^/\s#?]+)/i);
+  if (fullMatch) {
+    return { owner: fullMatch[1], repo: fullMatch[2] };
+  }
+
+  // Format 2: owner/repo shorthand
+  const shortMatch = clean.match(/^([^/\s:]+)\/([^/\s:]+)$/);
+  if (shortMatch) {
+    return { owner: shortMatch[1], repo: shortMatch[2] };
+  }
+
+  return null;
+}
+
 export function useGithubRepository() {
   const [repoUrl, setRepoUrl] = useState<string | null>(null);
   const [files, setFiles] = useState<FileNode[]>([]);
@@ -21,18 +40,18 @@ export function useGithubRepository() {
   const analyzeRepository = useCallback(async (url: string, performAnalysis: (files: { path: string, content: string }[]) => Promise<string>) => {
     setIsLoading(true);
     setError(null);
-    setRepoUrl(url);
     setSelectedPaths(new Set());
     
     try {
-      const cleanUrl = url.replace(/\.git\/?$/, "").replace(/\/$/, "");
-      const match = cleanUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-      if (!match) throw new Error("URL do GitHub inválida. Use o formato: https://github.com/usuario/repo");
-      const [, owner, repo] = match;
+      const parsed = parseGithubUrl(url);
+      if (!parsed) {
+        throw new Error("URL do GitHub inválida. Use o formato: https://github.com/usuario/repo ou usuario/repo");
+      }
+      const { owner, repo } = parsed;
 
       const treeData = await githubApi.getTree(owner, repo);
       // We keep all nodes (trees and blobs) for the file explorer
-      const allNodes = treeData.tree;
+      const allNodes = treeData.tree || [];
       
       // Use startTransition for potentially expensive UI updates
       startTransition(() => {
@@ -41,6 +60,7 @@ export function useGithubRepository() {
 
       const currentBranch = treeData.branch || 'main';
       setBranch(currentBranch);
+      setRepoUrl(url);
       
       // Fetch key files for initial analysis
       // Filter for blobs only
@@ -49,17 +69,20 @@ export function useGithubRepository() {
       ).slice(0, 5);
 
       const fileContents = await Promise.all(priorityFiles.map(async (f) => {
-        const content = await githubApi.getFileContent(owner, repo, f.path, currentBranch);
-        return { path: f.path, content };
+        try {
+          const content = await githubApi.getFileContent(owner, repo, f.path, currentBranch);
+          return { path: f.path, content };
+        } catch {
+          return { path: f.path, content: '' };
+        }
       }));
 
-      await performAnalysis(fileContents);
+      await performAnalysis(fileContents.filter(f => f.content));
       
       return { owner, repo, allFiles: allNodes, branch: currentBranch };
     } catch (err) {
       console.error(err);
       setError(err instanceof Error ? err.message : "Ocorreu um erro ao buscar o repositório.");
-      // throw err; // Don't throw, just set error state
     } finally {
       setIsLoading(false);
     }
@@ -71,10 +94,9 @@ export function useGithubRepository() {
     if (selectedFile && selectedFile.path === path) return;
 
     try {
-      const cleanUrl = repoUrl.replace(/\.git\/?$/, "").replace(/\/$/, "");
-      const match = cleanUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-      if (!match) return;
-      const [, owner, repo] = match;
+      const parsed = parseGithubUrl(repoUrl);
+      if (!parsed) return;
+      const { owner, repo } = parsed;
 
       const content = await githubApi.getFileContent(owner, repo, path, branch);
       
@@ -146,10 +168,9 @@ export function useGithubRepository() {
   ): Promise<{ path: string; content: string }[]> => {
     if (!repoUrl || targetPaths.length === 0) return [];
 
-    const cleanUrl = repoUrl.replace(/\.git\/?$/, "").replace(/\/$/, "");
-    const match = cleanUrl.match(/github\.com\/([^/]+)\/([^/]+)/);
-    if (!match) throw new Error("URL do GitHub inválida");
-    const [, owner, repo] = match;
+    const parsed = parseGithubUrl(repoUrl);
+    if (!parsed) throw new Error("URL do GitHub inválida");
+    const { owner, repo } = parsed;
 
     const results: { path: string; content: string }[] = [];
     const validPaths = targetPaths.filter(p => isCodeFile(p));

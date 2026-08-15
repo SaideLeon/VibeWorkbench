@@ -17,9 +17,28 @@ export async function GET(req: NextRequest) {
     const cachedContent = cacheService.getFileContent(owner, repo, branch, filePath);
     if (cachedContent) return new NextResponse(cachedContent);
 
-    const response = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${branch}/${filePath}`, {
-      headers: getGithubHeaders(req),
-    });
+    const headers = getGithubHeaders(req);
+
+    // Try GitHub API with raw header first (supports private repos with token)
+    let response = await fetch(
+      `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(filePath).replace(/%2F/g, '/')}?ref=${encodeURIComponent(branch)}`,
+      {
+        headers: {
+          ...headers,
+          Accept: 'application/vnd.github.raw+json, application/vnd.github.v3.raw',
+        },
+      }
+    );
+
+    // Fallback to raw.githubusercontent.com
+    if (!response.ok) {
+      const rawRes = await fetch(`https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${filePath}`, {
+        headers,
+      });
+      if (rawRes.ok) {
+        response = rawRes;
+      }
+    }
 
     if (!response.ok) {
       throw new AppError('Failed to fetch file content', response.status, {
