@@ -7,6 +7,7 @@ import { getAllCodeFiles } from '@/utils/file-selection';
 // Components
 import { Header } from '@/components/layout/Header';
 import { RepoInput } from '@/components/layout/RepoInput';
+import { LandingPage } from '@/components/landing/LandingPage';
 import { FileTree } from '@/components/file-explorer/FileTree';
 import { FileViewer } from '@/components/file-explorer/FileViewer';
 import { ChatInterface } from '@/components/ai-chat/ChatInterface';
@@ -21,6 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 
 type MobileTab = 'files' | 'chat' | 'preview';
 type MainPanel = 'chat' | 'security';
+type ViewMode = 'landing' | 'workbench';
 
 export default function App() {
   const { showToast, hideToast } = useToast();
@@ -28,6 +30,7 @@ export default function App() {
   const [activeMobileTab, setActiveMobileTab] = useState<MobileTab>('chat');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeMainPanel, setActiveMainPanel] = useState<MainPanel>('chat');
+  const [viewMode, setViewMode] = useState<ViewMode>('landing');
 
   // Custom Hooks
   const {
@@ -70,11 +73,15 @@ export default function App() {
     setAuditProgress,
     auditResult,
     blueprintMarkdown,
+    patchContent,
     auditError,
     isGeneratingBlueprint: isGeneratingSecurityBlueprint,
+    isGeneratingPatch: isGeneratingSecurityPatch,
     lastContextFiles,
     runAudit,
     downloadBlueprint: downloadSecurityBlueprint,
+    downloadPatch: downloadSecurityPatch,
+    generatePatch: generateSecurityPatch,
   } = useSecurityAudit();
 
   const totalCodeCount = useMemo(() => getAllCodeFiles(files).length, [files]);
@@ -187,28 +194,73 @@ export default function App() {
     }
   };
 
+  const handleDownloadSecurityPatch = async () => {
+    if (!repoUrl) return;
+    const projectName = repoUrl.split('github.com/')[1] || repoUrl;
+    const loadingToastId = showToast('Gerando arquivo .patch de remediação...', 'loading', 0);
+    try {
+      await downloadSecurityPatch(projectName, apiKeys[keyIndex]);
+      hideToast(loadingToastId);
+      showToast('Arquivo .patch gerado com sucesso! Pronto para git apply.', 'success');
+    } catch (err: any) {
+      hideToast(loadingToastId);
+      showToast(err.message || 'Falha ao gerar arquivo .patch.', 'error');
+    }
+  };
+
+  const handleGenerateSecurityPatch = async () => {
+    const projectName = repoUrl ? (repoUrl.split('github.com/')[1] || repoUrl) : 'project';
+    return await generateSecurityPatch(projectName, apiKeys[keyIndex]);
+  };
+
+  const handleClearRepository = () => {
+    clearRepository();
+    setViewMode('landing');
+  };
+
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#0a0a0a] text-gray-100 font-sans selection:bg-indigo-500/30">
-      <Header 
-        apiKeys={apiKeys} 
-        keyIndex={keyIndex} 
-        onUploadKeys={handleKeyFileUpload} 
-        onLogoClick={clearRepository}
-      />
+      {repoUrl && (
+        <Header 
+          apiKeys={apiKeys} 
+          keyIndex={keyIndex} 
+          onUploadKeys={handleKeyFileUpload} 
+          onLogoClick={handleClearRepository}
+        />
+      )}
       
-      <main className="flex-1 w-full p-0 md:p-6 overflow-hidden relative">
+      <main className="flex-1 w-full p-0 overflow-hidden relative">
         <AnimatePresence mode="wait">
           {!repoUrl ? (
-            <div className="h-full overflow-y-auto p-4 md:p-0">
-              <RepoInput key="input" onAnalyze={handleAnalyze} isLoading={isRepoLoading} />
-            </div>
+            viewMode === 'landing' ? (
+              <div key="landing-view" className="h-full overflow-y-auto">
+                <LandingPage
+                  onAnalyzeRepo={handleAnalyze}
+                  isLoading={isRepoLoading}
+                  onOpenWorkbenchDirectly={() => setViewMode('workbench')}
+                />
+              </div>
+            ) : (
+              <div key="workbench-input" className="h-full overflow-y-auto p-4 md:p-6">
+                <div className="max-w-5xl mx-auto mb-4 flex items-center justify-between">
+                  <button
+                    onClick={() => setViewMode('landing')}
+                    className="text-xs font-semibold text-indigo-400 hover:text-indigo-300 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 transition-colors cursor-pointer"
+                  >
+                    ← Voltar para o Guia das 7 Brechas
+                  </button>
+                  <span className="text-xs text-gray-500 font-mono">Modo Workbench Ativo</span>
+                </div>
+                <RepoInput onAnalyze={handleAnalyze} isLoading={isRepoLoading} />
+              </div>
+            )
           ) : (
             <motion.div 
               key="dashboard"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="flex flex-col lg:grid lg:grid-cols-12 gap-6 h-full p-4 md:p-0"
+              className="flex flex-col lg:grid lg:grid-cols-12 gap-6 h-full p-4 md:p-6"
             >
               {/* Sidebar: File Tree (Desktop) */}
               <div className={cn(
@@ -219,10 +271,10 @@ export default function App() {
                   <h2 className="font-semibold truncate text-sm" title={repoUrl}>{repoUrl.split('github.com/')[1]}</h2>
                   <div className="flex flex-col gap-2 mt-2">
                     <button 
-                      onClick={clearRepository} 
+                      onClick={handleClearRepository} 
                       className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 cursor-pointer"
                     >
-                      ← Analisar outro
+                      ← Analisar outro / Ver Guia
                     </button>
                     <div className="mt-1">
                       <button
@@ -391,10 +443,14 @@ export default function App() {
                     auditProgress={auditProgress}
                     auditResult={auditResult}
                     blueprintMarkdown={blueprintMarkdown}
+                    patchContent={patchContent}
                     auditError={auditError}
                     isGeneratingBlueprint={isGeneratingSecurityBlueprint}
+                    isGeneratingPatch={isGeneratingSecurityPatch}
                     onRunAudit={handleRunSecurityAudit}
                     onDownloadBlueprint={handleDownloadSecurityBlueprint}
+                    onDownloadPatch={handleDownloadSecurityPatch}
+                    onGeneratePatch={handleGenerateSecurityPatch}
                     isMaximized={maximizedPanel === 'chat'}
                     onToggleMaximize={() => setMaximizedPanel(prev => prev === 'chat' ? null : 'chat')}
                     selectedCount={selectedPaths.size}

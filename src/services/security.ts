@@ -50,3 +50,23 @@ export async function generateSecurityBlueprint(
 
   return response.text();
 }
+
+export async function generateSecurityPatch(
+  findings: SecurityFinding[],
+  contextFiles: { path: string; content: string }[],
+  projectName?: string,
+  apiKey?: string
+): Promise<string> {
+  const response = await fetch('/api/security/patch', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ findings, contextFiles, projectName, apiKey }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Geração do arquivo .patch falhou: ${await readError(response, response.statusText)}`);
+  }
+
+  return response.text();
+}
+

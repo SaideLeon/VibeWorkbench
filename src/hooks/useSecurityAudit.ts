@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
 import { SecurityAuditResult } from '@/types';
-import { runSecurityAudit, generateSecurityBlueprint } from '@/services/security';
+import { runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
 import { limitTextContext } from '@/utils/textLimiter';
 
 export interface AuditProgress {
-  phase: 'idle' | 'fetching' | 'auditing' | 'generating_blueprint';
+  phase: 'idle' | 'fetching' | 'auditing' | 'generating_blueprint' | 'generating_patch';
   current?: number;
   total?: number;
   message?: string;
@@ -15,8 +15,10 @@ export function useSecurityAudit() {
   const [auditProgress, setAuditProgress] = useState<AuditProgress>({ phase: 'idle' });
   const [auditResult, setAuditResult] = useState<SecurityAuditResult | null>(null);
   const [blueprintMarkdown, setBlueprintMarkdown] = useState<string | null>(null);
+  const [patchContent, setPatchContent] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
   const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
+  const [isGeneratingPatch, setIsGeneratingPatch] = useState(false);
   const [lastContextFiles, setLastContextFiles] = useState<{ path: string; content: string }[]>([]);
 
   const runAudit = useCallback(async (
@@ -27,6 +29,7 @@ export function useSecurityAudit() {
     setIsAuditing(true);
     setAuditError(null);
     setBlueprintMarkdown(null);
+    setPatchContent(null);
     setAuditProgress({ 
       phase: 'auditing', 
       message: `A analisar ${files.length} ficheiro(s) contra catálogo de segurança...` 
@@ -65,6 +68,63 @@ export function useSecurityAudit() {
     }
   }, []);
 
+  const generatePatch = useCallback(async (projectName: string, apiKey?: string): Promise<string> => {
+    if (!auditResult) {
+      throw new Error('Nenhuma auditoria realizada.');
+    }
+    if (patchContent) {
+      return patchContent;
+    }
+
+    setIsGeneratingPatch(true);
+    try {
+      const patch = await generateSecurityPatch(
+        auditResult.findings,
+        lastContextFiles,
+        projectName,
+        apiKey
+      );
+      setPatchContent(patch);
+      return patch;
+    } finally {
+      setIsGeneratingPatch(false);
+    }
+  }, [auditResult, lastContextFiles, patchContent]);
+
+  const downloadPatch = useCallback(async (projectName: string, apiKey?: string) => {
+    if (!auditResult) return;
+
+    let patch = patchContent;
+
+    if (!patch) {
+      setIsGeneratingPatch(true);
+      try {
+        patch = await generateSecurityPatch(
+          auditResult.findings,
+          lastContextFiles,
+          projectName,
+          apiKey
+        );
+        setPatchContent(patch);
+      } finally {
+        setIsGeneratingPatch(false);
+      }
+    }
+
+    if (patch) {
+      const blob = new Blob([patch], { type: 'text/x-diff;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const cleanProject = (projectName || 'project').replace(/[^a-z0-9-]+/gi, '-');
+      a.download = `security-remediation-${cleanProject}.patch`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  }, [auditResult, patchContent, lastContextFiles]);
+
   const downloadBlueprint = useCallback(async (projectName: string, apiKey?: string) => {
     if (!auditResult) return;
 
@@ -102,6 +162,7 @@ export function useSecurityAudit() {
   const resetAudit = useCallback(() => {
     setAuditResult(null);
     setBlueprintMarkdown(null);
+    setPatchContent(null);
     setAuditError(null);
     setAuditProgress({ phase: 'idle' });
   }, []);
@@ -112,11 +173,16 @@ export function useSecurityAudit() {
     setAuditProgress,
     auditResult,
     blueprintMarkdown,
+    patchContent,
     auditError,
     isGeneratingBlueprint,
+    isGeneratingPatch,
     lastContextFiles,
     runAudit,
     downloadBlueprint,
+    downloadPatch,
+    generatePatch,
     resetAudit,
   };
 }
+
