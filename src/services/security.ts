@@ -52,15 +52,14 @@ export async function generateSecurityBlueprint(
 }
 
 export async function generateSecurityPatch(
-  findings: SecurityFinding[],
-  contextFiles: { path: string; content: string }[],
+  blueprintMarkdown: string,
   projectName?: string,
   apiKey?: string
 ): Promise<string> {
   const response = await fetch('/api/security/patch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ findings, contextFiles, projectName, apiKey }),
+    body: JSON.stringify({ blueprintMarkdown, projectName, apiKey }),
   });
 
   if (!response.ok) {

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { Code2, Settings, Upload, Key, Maximize, Minimize, Github } from 'lucide-react';
+import { Settings, Upload, Key, Maximize, Minimize, Github } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 interface HeaderProps {
   apiKeys: string[];
@@ -156,12 +157,9 @@ export const Header = ({ apiKeys = [], keyIndex = 0, onUploadKeys, onLogoClick }
       <div className="w-full px-4 md:px-6 h-16 flex items-center justify-between">
         <button 
           onClick={onLogoClick}
-          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          className="flex items-center hover:opacity-85 transition-opacity cursor-pointer text-left"
         >
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center shrink-0">
-            <Code2 className="text-white w-5 h-5" />
-          </div>
-          <span className="font-semibold text-base md:text-lg tracking-tight text-white truncate max-w-[150px] md:max-w-none">Vibe Workbench</span>
+          <AppLogo size="md" showText={true} />
         </button>
         
         <div className="flex items-center gap-4">

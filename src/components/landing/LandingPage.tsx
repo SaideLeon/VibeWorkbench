@@ -10,7 +10,8 @@ import { CaseStudiesGrid } from './CaseStudiesGrid';
 import { FAQSection } from './FAQSection';
 import { CTASection } from './CTASection';
 import { LandingFooter } from './LandingFooter';
-import { Code2, ShieldAlert, Sparkles, Terminal, ArrowRight, Github } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 interface LandingPageProps {
   onAnalyzeRepo: (url: string) => void;
@@ -46,19 +47,11 @@ export const LandingPage = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Brand Logo */}
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-500/20">
-              <Code2 className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold text-base text-white tracking-tight leading-none block">
-                Vibe Workbench
-              </span>
-              <span className="text-[10px] text-gray-400 font-mono">
-                Security Auditor &amp; Remediation
-              </span>
-            </div>
-          </div>
+          <AppLogo 
+            size="lg" 
+            showText={true} 
+            subtitle="Security Auditor & Remediation" 
+          />
 
           {/* Desktop Nav Links */}
           <nav className="hidden lg:flex items-center gap-6 text-xs font-semibold text-gray-300">

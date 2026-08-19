@@ -54,23 +54,6 @@ export const HeroSection = ({
       <div className="absolute top-48 left-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none -z-10" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Badges and Eyebrow */}
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
-          className="flex flex-wrap items-center justify-center gap-2 mb-6"
-        >
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-            <ShieldAlert className="w-3.5 h-3.5" />
-            Alerta de Segurança VibeCoding 2026
-          </span>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-white/5 text-gray-300 border border-white/10">
-            <Sparkles className="w-3 h-3 text-indigo-400" />
-            Auditor Inteligente + Blueprints de Remediação (.patch)
-          </span>
-        </motion.div>
-
         {/* Main Headline */}
         <motion.div 
           initial={{ opacity: 0, y: 15 }}

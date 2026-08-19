@@ -57,6 +57,19 @@ export function useSecurityAudit() {
       );
 
       setBlueprintMarkdown(blueprintMd);
+
+      // Passo 3: Gerar o patch estritamente baseado no Blueprint já produzido
+      try {
+        const patch = await generateSecurityPatch(
+          blueprintMd,
+          projectName,
+          apiKey
+        );
+        setPatchContent(patch);
+      } catch (patchErr) {
+        console.warn('Patch pré-gerado falhou, ficará disponível sob demanda a partir do Blueprint:', patchErr);
+      }
+
       return { auditResult: result, blueprint: blueprintMd };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido na auditoria e blueprint.';
@@ -69,18 +82,17 @@ export function useSecurityAudit() {
   }, []);
 
   const generatePatch = useCallback(async (projectName: string, apiKey?: string): Promise<string> => {
-    if (!auditResult) {
-      throw new Error('Nenhuma auditoria realizada.');
-    }
     if (patchContent) {
       return patchContent;
+    }
+    if (!blueprintMarkdown) {
+      throw new Error('Nenhum Blueprint de segurança gerado anteriormente para converter em patch.');
     }
 
     setIsGeneratingPatch(true);
     try {
       const patch = await generateSecurityPatch(
-        auditResult.findings,
-        lastContextFiles,
+        blueprintMarkdown,
         projectName,
         apiKey
       );
@@ -89,19 +101,19 @@ export function useSecurityAudit() {
     } finally {
       setIsGeneratingPatch(false);
     }
-  }, [auditResult, lastContextFiles, patchContent]);
+  }, [blueprintMarkdown, patchContent]);
 
   const downloadPatch = useCallback(async (projectName: string, apiKey?: string) => {
-    if (!auditResult) return;
-
     let patch = patchContent;
 
     if (!patch) {
+      if (!blueprintMarkdown) {
+        throw new Error('Nenhum Blueprint gerado anteriormente para baixar o patch correspondente.');
+      }
       setIsGeneratingPatch(true);
       try {
         patch = await generateSecurityPatch(
-          auditResult.findings,
-          lastContextFiles,
+          blueprintMarkdown,
           projectName,
           apiKey
         );
@@ -123,7 +135,7 @@ export function useSecurityAudit() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     }
-  }, [auditResult, patchContent, lastContextFiles]);
+  }, [blueprintMarkdown, patchContent]);
 
   const downloadBlueprint = useCallback(async (projectName: string, apiKey?: string) => {
     if (!auditResult) return;

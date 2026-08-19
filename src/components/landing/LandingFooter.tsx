@@ -1,4 +1,4 @@
-import { Code2, ShieldAlert, Heart, Github, Sparkles } from 'lucide-react';
+import { AppLogo } from '@/components/ui/AppLogo';
 
 export const LandingFooter = ({ onOpenWorkbench }: { onOpenWorkbench: () => void }) => {
   return (
@@ -6,15 +6,11 @@ export const LandingFooter = ({ onOpenWorkbench }: { onOpenWorkbench: () => void
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
         
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-8 border-b border-white/5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white shrink-0">
-              <Code2 className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="font-bold text-base text-white tracking-tight block">Vibe Workbench</span>
-              <span className="text-[11px] text-gray-500">Auditoria & Blindagem de Segurança para VibeCoding</span>
-            </div>
-          </div>
+          <AppLogo 
+            size="md" 
+            showText={true} 
+            subtitle="Auditoria & Blindagem de Segurança para VibeCoding" 
+          />
 
           <div className="flex flex-wrap items-center justify-center gap-6 text-xs text-gray-300">
             <a href="#sete-brechas" className="hover:text-white transition-colors">As 7 Brechas</a>

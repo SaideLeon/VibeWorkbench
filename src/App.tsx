@@ -220,7 +220,7 @@ export default function App() {
 
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-[#0a0a0a] text-gray-100 font-sans selection:bg-indigo-500/30">
-      {repoUrl && (
+      {(repoUrl || viewMode === 'workbench') && (
         <Header 
           apiKeys={apiKeys} 
           keyIndex={keyIndex} 
