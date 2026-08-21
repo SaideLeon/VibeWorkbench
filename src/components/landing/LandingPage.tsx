@@ -2,11 +2,11 @@ import { useState } from 'react';
 import { HeroSection } from './HeroSection';
 import { VibeCodingRealitySection } from './VibeCodingRealitySection';
 import { SevenBreachesSection } from './SevenBreachesSection';
-import { InteractiveInspectorDemo } from './InteractiveInspectorDemo';
 import { VibeRiskCalculator } from './VibeRiskCalculator';
 import { PlatformFeaturesSection } from './PlatformFeaturesSection';
 import { ComparisonMatrix } from './ComparisonMatrix';
 import { CaseStudiesGrid } from './CaseStudiesGrid';
+import { PricingSection } from './PricingSection';
 import { FAQSection } from './FAQSection';
 import { CTASection } from './CTASection';
 import { LandingFooter } from './LandingFooter';
@@ -74,6 +74,13 @@ export const LandingPage = ({
               Recursos
             </button>
             <button 
+              onClick={() => scrollToSection('planos')}
+              className="text-indigo-400 hover:text-indigo-300 font-bold transition-colors cursor-pointer flex items-center gap-1"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Planos
+            </button>
+            <button 
               onClick={() => scrollToSection('faq')}
               className="hover:text-white transition-colors cursor-pointer"
             >
@@ -116,10 +123,7 @@ export const LandingPage = ({
           onAuditTrigger={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         />
 
-        {/* 4. Live Interactive F12 Simulator Demo */}
-        <InteractiveInspectorDemo />
-
-        {/* 5. VibeRisk Calculator */}
+        {/* 4. VibeRisk Calculator */}
         <VibeRiskCalculator 
           onScanRepo={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         />
@@ -137,10 +141,15 @@ export const LandingPage = ({
         {/* 8. Real-world Case Studies Grid */}
         <CaseStudiesGrid />
 
-        {/* 9. FAQ Section */}
+        {/* 9. Pricing & Plans Section */}
+        <PricingSection 
+          onStartFreeAudit={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        />
+
+        {/* 10. FAQ Section */}
         <FAQSection />
 
-        {/* 10. High-converting Final CTA */}
+        {/* 11. High-converting Final CTA */}
         <CTASection 
           onAnalyze={onAnalyzeRepo}
           isLoading={isLoading}

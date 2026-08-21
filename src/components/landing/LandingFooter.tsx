@@ -16,6 +16,7 @@ export const LandingFooter = ({ onOpenWorkbench }: { onOpenWorkbench: () => void
             <a href="#sete-brechas" className="hover:text-white transition-colors">As 7 Brechas</a>
             <a href="#calculadora-risco" className="hover:text-white transition-colors">Calculadora de Risco</a>
             <a href="#recursos" className="hover:text-white transition-colors">Recursos</a>
+            <a href="#planos" className="text-indigo-400 hover:text-indigo-300 font-semibold transition-colors">Planos & Preços</a>
             <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
             <button 
               onClick={onOpenWorkbench}

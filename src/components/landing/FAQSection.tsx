@@ -14,23 +14,23 @@ const FAQS: FAQItem[] = [
     answer: 'VibeCoding é a prática de criar aplicativos inteiros apenas conversando com Inteligências Artificiais em linguagem natural, sem necessariamente dominar código manual. Os modelos de linguagem (LLMs) são otimizados para gerar código que "funcione visualmente na tela" o mais rápido possível. Eles não possuem senso de infraestrutura real e frequentemente colocam chaves de API no front-end, validam assinaturas VIP no navegador do usuário e esquecem regras de banco de dados (RLS), gerando as 7 falhas invisíveis documentadas.'
   },
   {
-    question: 'Como o Vibe Workbench analisa meu repositório do GitHub?',
+    question: 'Como o Mitigar IA analisa meu repositório do GitHub?',
     answer: 'Ao colar o link de um repositório público ou conectar seu GitHub via OAuth para repositórios privados, nosso sistema extrai a árvore de arquivos, realiza análise estática de código (AST) e submete os arquivos a um motor de raciocínio de IA configurado com um catálogo rígido de 36 regras de segurança (R01–R25 e CTF-R01–R11). A IA é forçada a categorizar apenas vulnerabilidades reais com evidências e nunca inventa regras ou severidades por conta própria.'
   },
   {
     question: 'O que é um Blueprint de Segurança e o arquivo .patch?',
-    answer: 'O Blueprint de Segurança é um relatório técnico completo em Markdown detalhando cada falha encontrada, a regra violada, a localização no código e o plano de remediação. Junto com o Blueprint, o Vibe Workbench gera um arquivo .patch no formato padrão do Git (diff unificado). Com um único comando ("git apply brada-security-audit.patch"), você aplica as correções de código diretamente no seu repositório.'
+    answer: 'O Blueprint de Segurança é um relatório técnico completo em Markdown detalhando cada falha encontrada, a regra violada, a localização no código e o plano de remediação. Junto com o Blueprint, o Mitigar IA gera um arquivo .patch no formato padrão do Git (diff unificado). Com um único comando ("git apply security-remediation.patch"), você aplica as correções de código diretamente no seu repositório.'
   },
   {
-    question: 'Eu não sou programador experiente. Consigo usar o Vibe Workbench?',
-    answer: 'Sim, absolutamente! O Vibe Workbench foi desenhado tanto para criadores sem formação técnica quanto para engenheiros de software seniores. As explicações vêm acompanhadas de analogias práticas, o Score de Segurança de 0 a 100 indica de forma cristalina se o app está aprovado ou reprovado para produção, e as instruções mostram o passo a passo exato para blindar seu projeto.'
+    question: 'Eu não sou programador experiente. Consigo usar o Mitigar IA?',
+    answer: 'Sim, absolutamente! O Mitigar IA foi desenhado tanto para criadores sem formação técnica quanto para engenheiros de software seniores. As explicações vêm acompanhadas de analogias práticas, o Score de Segurança de 0 a 100 indica de forma cristalina se o app está aprovado ou reprovado para produção, e as instruções mostram o passo a passo exato para blindar seu projeto.'
   },
   {
     question: 'Por que uma instrução em texto (prompt) não é suficiente para impedir que a IA destrua dados?',
     answer: 'Como demonstrado no caso histórico da SaaStr com o Replit Agent, instruções textuais como "NÃO ALTERE O BANCO" dependem da interpretação estatística da IA, que pode entrar em pânico ou alucinar sob pressão. A verdadeira segurança exige "fechaduras de infraestrutura": isolamento físico de ambientes (Dev/Prod), permissões restritivas de banco e portões de aprovação humana (Human-in-the-Loop) antes de qualquer comando destrutivo.'
   },
   {
-    question: 'Quais linguagens e frameworks o Vibe Workbench suporta?',
+    question: 'Quais linguagens e frameworks o Mitigar IA suporta?',
     answer: 'Suportamos JavaScript, TypeScript, React, Next.js, Vue, Node.js, Python, Supabase, PostgreSQL, Tailwind, Express, HTML/CSS e migrações de bancos de dados relacionais e serverless.'
   },
   {
@@ -52,10 +52,6 @@ export const FAQSection = () => {
         
         {/* Header */}
         <div className="text-center space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <HelpCircle className="w-3.5 h-3.5" />
-            Tire Suas Dúvidas
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Perguntas Frequentes sobre <span className="text-indigo-400">VibeCoding Seguro</span>
           </h2>

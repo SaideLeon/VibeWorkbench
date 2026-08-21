@@ -18,12 +18,13 @@ import {
   Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { HighlightCode } from '@/components/ui/HighlightCode';
 
 export const InteractiveInspectorDemo = () => {
   const [activeTab, setActiveTab] = useState<'paywall' | 'secrets' | 'supabase'>('paywall');
   
   // Paywall Simulator State
-  const [isClientMode, setIsClientMode] = useState<boolean>(true); // true = Vulnerable client-side, false = Vibe Workbench Protected
+  const [isClientMode, setIsClientMode] = useState<boolean>(true); // true = Vulnerable client-side, false = Mitigar IA Protected
   const [clientPlan, setClientPlan] = useState<'free' | 'premium'>('free');
   
   // Secrets Simulator State
@@ -36,10 +37,6 @@ export const InteractiveInspectorDemo = () => {
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-14">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Terminal className="w-3.5 h-3.5" />
-            Simulador Interativo em Tempo Real
-          </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Experimente o Teste do <span className="text-amber-400 font-mono">F12</span> ao Vivo
           </h2>
@@ -166,7 +163,7 @@ export const InteractiveInspectorDemo = () => {
                     ) : (
                       <>
                         <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Vibe Workbench (Blindado)</span>
+                        <span>Mitigar IA (Blindado)</span>
                       </>
                     )}
                   </button>
@@ -239,7 +236,7 @@ export const InteractiveInspectorDemo = () => {
                       </span>
                     ) : (
                       <span className="text-emerald-300">
-                        🟢 <strong>Protegido pelo Vibe Workbench:</strong> Mesmo que o usuário modifique o LocalStorage via F12, o servidor rejeita o payload porque a validação é conferida a cada requisição na API protegida.
+                        🟢 <strong>Protegido pelo Mitigar IA:</strong> Mesmo que o usuário modifique o LocalStorage via F12, o servidor rejeita o payload porque a validação é conferida a cada requisição na API protegida.
                       </span>
                     )}
                   </div>
@@ -307,26 +304,35 @@ export const InteractiveInspectorDemo = () => {
                     </div>
 
                     {!isProtectedSecrets ? (
-                      <div className="p-2.5 rounded bg-red-500/10 border border-red-500/30 text-red-300 space-y-1">
+                      <div className="p-3 rounded bg-red-500/10 border border-red-500/30 text-red-300 space-y-2">
                         <div className="text-[10px] text-red-400 font-bold flex items-center gap-1">
                           <XCircle className="w-3.5 h-3.5" />
-                          CHAVE MESTRA DA OPENAI EXPOSTA NA LINHA 142:
+                          CHAVE MESTRA DA OPENAI EXPOSTA NO BUNDLE JS:
                         </div>
-                        <div className="bg-black/60 p-2 rounded text-[11px] text-amber-300 break-all select-all">
-                          const OPENAI_API_KEY = &quot;sk-proj-98af38b9e8172c3d4a5b6c7d8e9f2a1b0c9d8e7f&quot;;
-                        </div>
+                        <HighlightCode
+                          code={`// ❌ EXPOSTO NO NAVEGADOR:\nconst OPENAI_API_KEY = "sk-proj-98af38b9e8172c3d4a5b6c7d8e9f2a1b0c9d8e7f";\nconst stripeSecret = "sk_live_51P...99ax1";`}
+                          language="javascript"
+                          variant="vulnerable"
+                          showLineNumbers={true}
+                        />
                         <p className="text-[10px] text-red-400/90 font-sans">
-                          Qualquer visitante pode copiar esta chave e consumir seus créditos ou clonar sua IA.
+                          Qualquer visitante com F12 pode copiar esta chave e consumir seus créditos ou clonar sua IA.
                         </p>
                       </div>
                     ) : (
-                      <div className="p-2.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-1">
+                      <div className="p-3 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 space-y-2">
                         <div className="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          NENHUM SEGREDO OU CHAVE ENCONTRADA NO CLIENTE!
+                          NENHUM SEGREDO OU CHAVE EXPOSTA NO CLIENTE!
                         </div>
+                        <HighlightCode
+                          code={`// ✅ PADRÃO SEGURO (Server-side proxy):\nexport async function POST(req: NextRequest) {\n  // Chaves mantidas em process.env no servidor\n  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });\n  return NextResponse.json({ ok: true });\n}`}
+                          language="typescript"
+                          variant="secure"
+                          showLineNumbers={true}
+                        />
                         <p className="text-[11px] text-emerald-200/90 font-sans">
-                          O Vibe Workbench converteu as chamadas diretas para um proxy seguro em <code className="font-mono bg-black/40 px-1 rounded">/api/generate</code>. O segredo vive apenas em variáveis de ambiente server-side.
+                          O Mitigar IA converteu as chamadas diretas para um proxy seguro. O segredo vive apenas em variáveis de ambiente server-side.
                         </p>
                       </div>
                     )}
@@ -340,7 +346,7 @@ export const InteractiveInspectorDemo = () => {
                   <div className="flex items-center justify-between pb-3 border-b border-white/10">
                     <span className="text-xs font-bold text-white flex items-center gap-1.5">
                       <Sparkles className="w-4 h-4 text-indigo-400" />
-                      Como o Vibe Workbench Neutraliza Isso
+                      Como o Mitigar IA Neutraliza Isso
                     </span>
                     <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                       Regra R03 & CTF-R06
@@ -349,7 +355,7 @@ export const InteractiveInspectorDemo = () => {
 
                   <div className="mt-4 space-y-3 text-xs text-gray-300 leading-relaxed">
                     <p>
-                      Quando você analisa um repositório no <strong>Vibe Workbench</strong>, nosso scanner estático de código procura padrões regex e AST de chaves privadas (OpenAI, Anthropic, Gemini, Stripe, Supabase Service Role).
+                      Quando você analisa um repositório no <strong>Mitigar IA</strong>, nosso scanner estático de código procura padrões regex e AST de chaves privadas (OpenAI, Anthropic, Gemini, Stripe, Supabase Service Role).
                     </p>
                     <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-xl p-3.5 text-indigo-200 space-y-1.5">
                       <div className="font-bold text-white flex items-center gap-1">

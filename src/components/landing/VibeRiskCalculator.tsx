@@ -156,10 +156,6 @@ export const VibeRiskCalculator = ({ onScanRepo }: { onScanRepo: () => void }) =
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Calculator className="w-3.5 h-3.5" />
-            Diagnóstico Rápido
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Calculadora de Risco do Seu <span className="text-amber-400">VibeCode</span>
           </h2>
@@ -288,7 +284,7 @@ export const VibeRiskCalculator = ({ onScanRepo }: { onScanRepo: () => void }) =
             </div>
 
             <div className="bg-[#121216] border border-white/10 rounded-xl p-4 text-xs text-gray-400 text-center">
-              🛡️ O Vibe Workbench corrige automaticamente essas falhas através de <strong>Blueprints e arquivos .patch</strong> prontos para o Git.
+              🛡️ O Mitigar IA corrige automaticamente essas falhas através de <strong>Blueprints e arquivos .patch</strong> prontos para o Git.
             </div>
 
           </div>

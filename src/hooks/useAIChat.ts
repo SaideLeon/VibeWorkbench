@@ -1,22 +1,143 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { AnalysisMessage } from '@/types';
 import { analyzeCode, thinkAndSuggest } from '@/services/ai';
 import { limitTextContext } from '@/utils/textLimiter';
 import { getResponseText } from '@/utils/ai-helpers';
+
+const STORAGE_KEYS_NAME = 'gemini_user_api_keys';
+const STORAGE_INDEX_NAME = 'gemini_user_key_index';
 
 export function useAIChat() {
   const [chatHistory, setChatHistory] = useState<AnalysisMessage[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [analysis, setAnalysis] = useState<string | null>(null);
   
-  // API Key Rotation State
+  // API Key Rotation & Prioritization State
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [keyIndex, setKeyIndex] = useState(0);
+
+  // Initialize keys from localStorage on mount
+  useEffect(() => {
+    try {
+      const savedKeys = localStorage.getItem(STORAGE_KEYS_NAME);
+      const savedIndex = localStorage.getItem(STORAGE_INDEX_NAME);
+      if (savedKeys) {
+        const parsed = JSON.parse(savedKeys);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const valid = parsed.filter((k: any) => typeof k === 'string' && k.trim().length > 10);
+          setApiKeys(valid);
+          if (savedIndex) {
+            const idx = parseInt(savedIndex, 10);
+            if (!isNaN(idx) && idx >= 0 && idx < valid.length) {
+              setKeyIndex(idx);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao carregar chaves do localStorage:', e);
+    }
+  }, []);
+
+  const saveKeys = useCallback((keys: string[], activeIdx = 0) => {
+    setApiKeys(keys);
+    const validIdx = keys.length > 0 ? Math.min(activeIdx, keys.length - 1) : 0;
+    setKeyIndex(validIdx);
+    try {
+      localStorage.setItem(STORAGE_KEYS_NAME, JSON.stringify(keys));
+      localStorage.setItem(STORAGE_INDEX_NAME, String(validIdx));
+    } catch (e) {
+      console.warn('Erro ao salvar chaves no localStorage:', e);
+    }
+  }, []);
+
+  const addApiKeys = useCallback((newKeysInput: string[] | string) => {
+    const rawList = Array.isArray(newKeysInput) 
+      ? newKeysInput 
+      : newKeysInput.split(/[\r\n,;]+/).map(k => k.trim());
+    
+    const validNew = rawList
+      .map(k => k.trim())
+      .filter(k => k.length > 15);
+
+    if (validNew.length === 0) {
+      throw new Error('Nenhuma chave de API válida encontrada. Verifique o formato inserido.');
+    }
+
+    setApiKeys(prev => {
+      const existing = new Set(prev);
+      const merged = [...prev];
+      for (const k of validNew) {
+        if (!existing.has(k)) {
+          merged.push(k);
+          existing.add(k);
+        }
+      }
+      try {
+        localStorage.setItem(STORAGE_KEYS_NAME, JSON.stringify(merged));
+      } catch (e) {
+        console.warn(e);
+      }
+      return merged;
+    });
+
+    return validNew.length;
+  }, []);
+
+  const removeApiKey = useCallback((indexToRemove: number) => {
+    setApiKeys(prev => {
+      const updated = prev.filter((_, idx) => idx !== indexToRemove);
+      const nextIdx = updated.length > 0 ? 0 : 0;
+      setKeyIndex(nextIdx);
+      try {
+        localStorage.setItem(STORAGE_KEYS_NAME, JSON.stringify(updated));
+        localStorage.setItem(STORAGE_INDEX_NAME, String(nextIdx));
+      } catch (e) {
+        console.warn(e);
+      }
+      return updated;
+    });
+  }, []);
+
+  const clearApiKeys = useCallback(() => {
+    setApiKeys([]);
+    setKeyIndex(0);
+    try {
+      localStorage.removeItem(STORAGE_KEYS_NAME);
+      localStorage.removeItem(STORAGE_INDEX_NAME);
+    } catch (e) {
+      console.warn(e);
+    }
+  }, []);
+
+  const setActiveKeyIndex = useCallback((idx: number) => {
+    if (idx >= 0 && idx < apiKeys.length) {
+      setKeyIndex(idx);
+      try {
+        localStorage.setItem(STORAGE_INDEX_NAME, String(idx));
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+  }, [apiKeys.length]);
+
+  const getActiveKey = useCallback(() => {
+    if (apiKeys.length > 0 && keyIndex < apiKeys.length) {
+      return apiKeys[keyIndex];
+    }
+    return undefined;
+  }, [apiKeys, keyIndex]);
 
   const getNextKey = useCallback(() => {
     if (apiKeys.length > 0) {
       const key = apiKeys[keyIndex];
-      setKeyIndex((prev) => (prev + 1) % apiKeys.length);
+      const nextIndex = (keyIndex + 1) % apiKeys.length;
+      setKeyIndex(nextIndex);
+      try {
+        localStorage.setItem(STORAGE_INDEX_NAME, String(nextIndex));
+      } catch (e) {
+        console.warn(e);
+      }
       return key;
     }
     return undefined;
@@ -25,20 +146,19 @@ export function useAIChat() {
   const handleKeyFileUpload = useCallback(async (file: File) => {
     try {
       const text = await file.text();
-      const keys = text.split(/\r?\n/).map(k => k.trim()).filter(k => k.length > 20);
+      const keys = text.split(/\r?\n/).map(k => k.trim()).filter(k => k.length > 15);
       
       if (keys.length === 0) {
         throw new Error("Nenhuma chave válida encontrada no arquivo.");
       }
       
-      setApiKeys(keys);
-      setKeyIndex(0);
+      saveKeys(keys, 0);
       return keys.length;
     } catch (err) {
       console.error("Erro ao ler arquivo de chaves:", err);
       throw err;
     }
-  }, []);
+  }, [saveKeys]);
 
   const performInitialAnalysis = useCallback(async (files: { path: string, content: string }[]) => {
     try {
@@ -125,9 +245,15 @@ export function useAIChat() {
     performInitialAnalysis,
     sendMessage,
     setChatHistory,
-    // API Key Management
+    // API Key Management & Prioritization
     apiKeys,
     keyIndex,
+    getActiveKey,
+    getNextKey,
+    addApiKeys,
+    removeApiKey,
+    clearApiKeys,
+    setActiveKeyIndex,
     handleKeyFileUpload
   };
 }

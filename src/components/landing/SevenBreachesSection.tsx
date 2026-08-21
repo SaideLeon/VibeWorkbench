@@ -22,6 +22,7 @@ import {
   Check
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { HighlightCode } from '@/components/ui/HighlightCode';
 
 export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () => void }) => {
   const [activeLayerId, setActiveLayerId] = useState<number>(1);
@@ -42,10 +43,6 @@ export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () =>
         
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-            <ShieldAlert className="w-3.5 h-3.5" />
-            Análise Aprofundada
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             As 7 Brechas Invisíveis do <span className="text-red-400">VibeCoding</span>
           </h2>
@@ -175,11 +172,11 @@ export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () =>
                   </div>
                 </div>
 
-                {/* How Vibe Workbench Neutralizes It */}
+                {/* How Mitigar IA Neutralizes It */}
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 space-y-2 text-xs">
                   <div className="font-bold text-emerald-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4" />
-                    Como o Vibe Workbench Protege
+                    Como o Mitigar IA Protege
                   </div>
                   <p className="text-emerald-200 leading-relaxed">
                     {currentLayer.howWeProtect}
@@ -224,7 +221,7 @@ export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () =>
                       )}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      Blindagem Vibe Workbench
+                      Blindagem Mitigar IA
                     </button>
                   </div>
 
@@ -241,26 +238,27 @@ export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () =>
                   </button>
                 </div>
 
-                {/* Code Box */}
-                <div className="bg-[#09090b] border border-white/10 rounded-b-xl overflow-hidden font-mono text-xs shadow-2xl">
-                  <div className="px-4 py-2 bg-white/5 border-b border-white/5 text-[11px] text-gray-400 flex items-center justify-between">
-                    <span>
-                      {codeTab === 'vulnerable' 
-                        ? currentLayer.vulnerableCodeSnippet.filename 
-                        : currentLayer.secureCodeSnippet.filename}
-                    </span>
-                    <span className="text-[10px] text-gray-500">
-                      {codeTab === 'vulnerable' ? '🔴 NÃO FAÇA ISSO' : '🟢 PADRÃO BLINDADO'}
-                    </span>
-                  </div>
-
-                  <pre className="p-4 overflow-x-auto text-gray-300 leading-relaxed text-xs">
-                    <code>
-                      {codeTab === 'vulnerable'
+                {/* Code Box with Highlight.js Syntax Highlighter */}
+                <div className="shadow-2xl">
+                  <HighlightCode
+                    code={
+                      codeTab === 'vulnerable'
                         ? currentLayer.vulnerableCodeSnippet.code
-                        : currentLayer.secureCodeSnippet.code}
-                    </code>
-                  </pre>
+                        : currentLayer.secureCodeSnippet.code
+                    }
+                    language={
+                      codeTab === 'vulnerable'
+                        ? currentLayer.vulnerableCodeSnippet.language
+                        : currentLayer.secureCodeSnippet.language
+                    }
+                    filename={
+                      codeTab === 'vulnerable'
+                        ? currentLayer.vulnerableCodeSnippet.filename
+                        : currentLayer.secureCodeSnippet.filename
+                    }
+                    variant={codeTab === 'vulnerable' ? 'vulnerable' : 'secure'}
+                    showLineNumbers={true}
+                  />
                 </div>
 
                 {/* Code Explanation Tag */}
@@ -268,7 +266,7 @@ export const SevenBreachesSection = ({ onAuditTrigger }: { onAuditTrigger: () =>
                   <span>
                     {codeTab === 'vulnerable' 
                       ? '⚠️ Este padrão é gerado rotineiramente por LLMs padrão sem regras de catálogo estritas.' 
-                      : '🛡️ O Vibe Workbench gera automaticamente o patch (.patch) para transformar o código acima.'}
+                      : '🛡️ O Mitigar IA gera automaticamente o patch (.patch) para transformar o código acima.'}
                   </span>
                 </div>
 

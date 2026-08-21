@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
 import { jsonError } from '@/app/api/_utils';
-import { formatGitPatchHeader, sanitizeUnifiedDiff } from '@/server/security/patch-generator';
+import { formatGitPatchHeader } from '@/server/security/patch-generator';
+import { sanitizeUnifiedDiff } from '@/utils/patch-sanitizer';
 
 export const runtime = 'nodejs';
 
@@ -54,32 +55,34 @@ export async function POST(req: NextRequest) {
       
       Converta estrita e fielmente o BLUEPRINT DE SEGURANÇA fornecido abaixo em um arquivo de PATCH UNIFICADO DO GIT (.patch) 100% válido, completo e pronto para ser aplicado diretamente no repositório com o comando "git apply".
       
-      REGRAS CRÍTICAS DE FIDELIDADE AO BLUEPRINT:
-      1. TOTAL CONSISTÊNCIA COM O BLUEPRINT:
-         - Todo o código, caminhos de ficheiros, migrações SQL, testes unitários/integração, ficheiros .env e proteções de API DEVEM vir estritamente das resoluções já detalhadas no Blueprint.
-         - Não altere a abordagem de remediação nem invente novos ficheiros além dos indicados no Blueprint.
+      REGRAS CRÍTICAS DE SINTAXE E FIDELIDADE:
+      1. INÍCIO IMEDIATO DO DIFF:
+         - A primeira linha do seu texto gerado DEVE ser obrigatoriamente a declaração "diff --git a/caminho b/caminho" do primeiro arquivo.
+         - NUNCA emita texto conversacional, introduções, blocos soltos de código ou fechamento de chaves (ex: proibido "+ }" ou "+ };") antes do primeiro "diff --git".
 
       2. FORMATO OBRIGATÓRIO DE PATCH GIT (UNIFIED DIFF):
-         - Para ficheiros modificados existentes (use o trecho "O que existe actualmente" do Blueprint para a remoção [-] e o código do passo correspondente para a adição [+]):
+         - Para ficheiros modificados existentes:
            diff --git a/caminho/do/ficheiro.ts b/caminho/do/ficheiro.ts
            --- a/caminho/do/ficheiro.ts
            +++ b/caminho/do/ficheiro.ts
-           @@ -linha,qtd +linha,qtd @@
+           @@ -1,5 +1,5 @@
+            linha_contexto
            -codigo_antigo_vulneravel
            +codigo_novo_seguro
+            linha_contexto
 
-         - Para novos ficheiros (ex: migrações SQL, proxies de API, testes de validação, .env.example):
+         - Para novos ficheiros (migrações SQL, testes, etc.):
            diff --git a/caminho/do/novo_ficheiro.ts b/caminho/do/novo_ficheiro.ts
            new file mode 100644
            --- /dev/null
            +++ b/caminho/do/novo_ficheiro.ts
            @@ -0,0 +1,N @@
-           +-- codigo ou conteudo completo
-           +...
+           +linha 1
+           +linha 2
 
-      3. CÓDIGO 100% COMPLETO:
+      3. CÓDIGO 100% COMPLETO E SEM PLACEHOLDERS:
          - NUNCA use comentários como "// ... restante do código ..." ou "// TODO".
-         - Inclua o código completo conforme o Blueprint.
+         - Todo o código seguro detalhado no Blueprint deve estar completamente expresso nas linhas com prefixo "+".
 
       4. RETORNO BRUTO:
          - NÃO envolva em blocos markdown (\`\`\`diff). Devolva DIRETAMENTE o texto bruto do Git Unified Diff.

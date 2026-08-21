@@ -64,9 +64,9 @@ export const PlatformFeaturesSection = ({ onStartAudit }: PlatformFeaturesSectio
       icon: Building2,
       color: 'text-purple-400',
       bg: 'bg-purple-500/10 border-purple-500/20',
-      title: 'Governança Unificada contra Shadow Builders',
-      description: 'Painel de auditoria centralizado para empresas inspecionarem aplicações construídas por equipes de marketing, operações ou produtos antes do deploy.',
-      badge: 'Governança Corporativa'
+      title: 'Painel Único para Times Pequenos',
+      description: 'Um lugar simples para dev solo, cofundador técnico ou squad de 2 a 5 pessoas acompanhar a segurança de todos os projetos — sem processo de compliance corporativo, sem sales call.',
+      badge: 'Feito para Times Pequenos'
     }
   ];
 
@@ -76,15 +76,11 @@ export const PlatformFeaturesSection = ({ onStartAudit }: PlatformFeaturesSectio
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            A Solução Definitiva
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-            Como o <span className="text-indigo-400">Vibe Workbench</span> Blinda Suas Aplicações
+            Como o <span className="text-indigo-400">Mitigar IA</span> Blinda Suas Aplicações
           </h2>
           <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
-            Uma plataforma de engenharia de segurança que une análise estática, raciocínio profundo de IA e catálogo de regras severo para proteger seu código antes de ir para produção.
+            Segurança de nível profissional, sem a complexidade nem o preço de uma plataforma de governança corporativa. Feito para quem constrói sozinho ou em time pequeno — não para um time de AppSec dedicado.
           </p>
         </div>
 
@@ -123,7 +119,7 @@ export const PlatformFeaturesSection = ({ onStartAudit }: PlatformFeaturesSectio
 
                 <div className="mt-6 pt-4 border-t border-white/5 flex items-center text-xs font-semibold text-indigo-400">
                   <CheckCircle2 className="w-4 h-4 mr-1.5 text-emerald-400" />
-                  <span>Integrado ao Vibe Workbench</span>
+                  <span>Integrado ao Mitigar IA</span>
                 </div>
               </motion.div>
             );

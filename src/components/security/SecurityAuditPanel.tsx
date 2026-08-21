@@ -15,7 +15,8 @@ import {
   FileText,
   LayoutList,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  GitPullRequest
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -23,8 +24,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { cn } from '@/lib/utils';
 import { SecurityAuditResult, SecuritySeverity } from '@/types';
-import { AuditProgress } from '@/hooks/useSecurityAudit';
+import { AuditProgress, CreatedPullRequestInfo } from '@/hooks/useSecurityAudit';
 import { GeminiQuotaNotice } from '@/components/ui/GeminiQuotaNotice';
+import { UnifiedPatchViewer } from './UnifiedPatchViewer';
 
 const SEVERITY_STYLES: Record<SecuritySeverity, { badge: string; dot: string; label: string }> = {
   CRITICO: { badge: 'bg-red-500/10 text-red-400 border-red-500/30', dot: 'bg-red-500', label: '🔴 CRÍTICO' },
@@ -92,10 +94,13 @@ interface SecurityAuditPanelProps {
   auditError: string | null;
   isGeneratingBlueprint: boolean;
   isGeneratingPatch?: boolean;
+  isCreatingPR?: boolean;
+  createdPR?: CreatedPullRequestInfo | null;
   onRunAudit: (scope?: 'selected' | 'all' | 'single') => void;
   onDownloadBlueprint: () => void;
   onDownloadPatch: () => void;
   onGeneratePatch?: () => Promise<string>;
+  onCreatePullRequest?: () => void;
   isMaximized: boolean;
   onToggleMaximize: () => void;
   selectedCount: number;
@@ -114,10 +119,13 @@ export const SecurityAuditPanel = ({
   auditError,
   isGeneratingBlueprint,
   isGeneratingPatch = false,
+  isCreatingPR = false,
+  createdPR = null,
   onRunAudit,
   onDownloadBlueprint,
   onDownloadPatch,
   onGeneratePatch,
+  onCreatePullRequest,
   isMaximized,
   onToggleMaximize,
   selectedCount,
@@ -192,12 +200,9 @@ export const SecurityAuditPanel = ({
   });
 
   return (
-    <div className={cn(
-      "flex flex-col bg-[#111] rounded-xl border border-white/10 overflow-hidden transition-all duration-300",
-      isMaximized ? "h-full" : "h-full lg:h-[600px]"
-    )}>
+    <div className="flex flex-col bg-[#111] rounded-xl border border-white/10 overflow-hidden transition-all duration-300 h-full flex-1 min-h-0 w-full">
       {/* Panel Header */}
-      <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between">
+      <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="font-medium flex items-center gap-2 text-sm">
             <ShieldAlert className="w-4 h-4 text-red-400" />
@@ -212,7 +217,7 @@ export const SecurityAuditPanel = ({
         </div>
         <button
           onClick={onToggleMaximize}
-          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white cursor-pointer"
           title={isMaximized ? "Restaurar" : "Maximizar"}
         >
           {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -220,7 +225,7 @@ export const SecurityAuditPanel = ({
       </div>
 
       {/* Main Body */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
         {/* Scope Selector Bar */}
         <div className="bg-[#161616] border border-white/10 rounded-xl p-3">
           <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2 flex items-center justify-between">
@@ -396,7 +401,7 @@ export const SecurityAuditPanel = ({
             )}
 
             {/* Primary Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
               <button
                 onClick={() => onRunAudit('selected')}
                 disabled={isAuditing}
@@ -413,7 +418,7 @@ export const SecurityAuditPanel = ({
                 title="Copiar todo o documento Markdown do Blueprint"
               >
                 {isCopiedBlueprint ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
-                <span>{isCopiedBlueprint ? 'Blueprint Copiado!' : 'Copiar .md'}</span>
+                <span>{isCopiedBlueprint ? 'Copiado!' : 'Copiar .md'}</span>
               </button>
 
               <button
@@ -422,7 +427,7 @@ export const SecurityAuditPanel = ({
                 className="text-xs bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-200 border border-indigo-500/30 rounded-lg px-3 py-2 flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 cursor-pointer"
               >
                 <FileDown className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Baixar Blueprint (.md)</span>
+                <span>Blueprint (.md)</span>
               </button>
 
               <button
@@ -432,9 +437,58 @@ export const SecurityAuditPanel = ({
                 title="Baixar arquivo .patch unificado para aplicar via git apply"
               >
                 {isGeneratingPatch ? <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" /> : <FileCode className="w-3.5 h-3.5 text-emerald-400" />}
-                <span>Baixar Patch (.patch)</span>
+                <span>Patch (.patch)</span>
               </button>
+
+              {onCreatePullRequest && (
+                <button
+                  onClick={onCreatePullRequest}
+                  disabled={isCreatingPR || isAuditing || (!blueprintMarkdown && !patchContent)}
+                  className="text-xs bg-purple-600/25 hover:bg-purple-600/35 text-purple-200 border border-purple-500/35 rounded-lg px-3 py-2 flex items-center justify-center gap-2 font-medium transition-colors disabled:opacity-50 cursor-pointer shadow-sm"
+                  title="Criar Pull Request automático no GitHub com as correções aplicadas"
+                >
+                  {isCreatingPR ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
+                  ) : (
+                    <GitPullRequest className="w-3.5 h-3.5 text-purple-400" />
+                  )}
+                  <span>{isCreatingPR ? 'Abrindo PR...' : 'Abrir PR no GitHub'}</span>
+                </button>
+              )}
             </div>
+
+            {/* Banner de Pull Request Criado com Sucesso */}
+            {createdPR && (
+              <div className="bg-gradient-to-r from-purple-950/40 via-emerald-950/30 to-purple-950/40 border border-purple-500/30 rounded-xl p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-300 flex items-center justify-center shrink-0 border border-purple-500/30">
+                    <GitPullRequest className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-white">Pull Request #{createdPR.number} Aberto no GitHub!</span>
+                      <span className="text-[10px] bg-purple-500/20 text-purple-200 px-2 py-0.5 rounded font-mono border border-purple-500/30">
+                        {createdPR.branch}
+                      </span>
+                    </div>
+                    <p className="text-gray-300 text-[11px] mt-0.5">
+                      {createdPR.filesCount} arquivo(s) de remediação adicionados na branch pronta para merge.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={createdPR.html_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-medium px-3.5 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-xs shadow-sm"
+                  >
+                    <span>Revisar e Fazer Merge</span>
+                    <ExternalLink className="w-3.5 h-3.5" />
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* View Switcher Tabs (Blueprint vs Patch vs Findings) */}
             <div className="flex border-b border-white/10 pt-1 overflow-x-auto">
@@ -706,32 +760,7 @@ export const SecurityAuditPanel = ({
                     <p className="text-[11px] text-gray-500">Mapeando arquivos vulneráveis, rotas protegidas e migrações.</p>
                   </div>
                 ) : (patchContent || localPatch) ? (
-                  <div className="relative group rounded-xl overflow-hidden border border-white/10 shadow-lg">
-                    <div className="bg-[#1c1c1c] px-3.5 py-2 text-[11px] text-gray-400 border-b border-white/10 flex justify-between items-center font-mono">
-                      <span className="flex items-center gap-1.5 text-gray-300">
-                        <FileCode className="w-3.5 h-3.5 text-emerald-400" />
-                        security-remediation.patch
-                      </span>
-                      <span className="text-[10px] text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Git Unified Diff
-                      </span>
-                    </div>
-                    <SyntaxHighlighter
-                      PreTag="div"
-                      language="diff"
-                      style={atomDark}
-                      customStyle={{
-                        margin: 0,
-                        padding: '16px',
-                        fontSize: '11px',
-                        background: '#0d0d0d',
-                        maxHeight: '520px',
-                        overflowY: 'auto'
-                      }}
-                    >
-                      {patchContent || localPatch || ''}
-                    </SyntaxHighlighter>
-                  </div>
+                  <UnifiedPatchViewer patchText={patchContent || localPatch || ''} />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-10 gap-3 text-center bg-white/5 rounded-xl border border-white/10 p-6">
                     <FileCode className="w-10 h-10 text-emerald-400/60" />

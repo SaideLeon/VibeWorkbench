@@ -76,7 +76,7 @@ export function PremiumFeature() {
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'server/auth.ts (Vibe Workbench Blindado)',
+      filename: 'server/auth.ts (Mitigar IA Blindado)',
       code: `// ✅ CORREÇÃO ROBUSTA: Autorização criptográfica no servidor
 export async function getPremiumData(req: Request) {
   const session = await verifyServerSession(req);
@@ -91,7 +91,7 @@ export async function getPremiumData(req: Request) {
   return fetchProtectedContent();
 }`
     },
-    howWeProtect: 'O Vibe Workbench escaneia componentes e rotas da sua aplicação, identificando verificações de permissão baseadas em estado local (Regras R09, R15, R16) e gerando rotas protegidas no servidor.',
+    howWeProtect: 'O Mitigar IA escaneia componentes e rotas da sua aplicação, identificando verificações de permissão baseadas em estado local (Regras R09, R15, R16) e gerando rotas protegidas no servidor.',
     ruleIds: ['R09', 'R15', 'R16', 'CTF-R05']
   },
   {
@@ -121,7 +121,7 @@ const openai = new OpenAI({
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'app/api/ai/route.ts (Vibe Workbench Blindado)',
+      filename: 'app/api/ai/route.ts (Mitigar IA Blindado)',
       code: `// ✅ SEGREDO PROTEGIDO NO SERVIDOR:
 // A chave nunca sai da infraestrutura e não existe no navegador
 import { NextRequest, NextResponse } from "next/server";
@@ -136,7 +136,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ result: res.choices[0] });
 }`
     },
-    howWeProtect: 'O motor de análise do Vibe Workbench executa busca estática e semântica por tokens, chaves de API e credenciais hardcoded (Regras R03, CTF-R06), gerando rotas de proxy de API seguras e declarando variáveis em .env.example.',
+    howWeProtect: 'O motor de análise do Mitigar IA executa busca estática e semântica por tokens, chaves de API e credenciais hardcoded (Regras R03, CTF-R06), gerando rotas de proxy de API seguras e declarando variáveis em .env.example.',
     ruleIds: ['R03', 'CTF-R06', 'R22']
   },
   {
@@ -167,7 +167,7 @@ export async function handleRegister(req: Request) {
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'api/register.ts (Vibe Workbench Blindado)',
+      filename: 'api/register.ts (Mitigar IA Blindado)',
       code: `// ✅ FLUXO SEGURO COM CONTEXTO E RATE LIMITING:
 export async function handleRegister(req: Request) {
   await enforceRateLimit(req, { maxAttempts: 5, windowMinutes: 15 });
@@ -180,7 +180,7 @@ export async function handleRegister(req: Request) {
   return sendSecureScopedOTP(email, invite.tenantId);
 }`
     },
-    howWeProtect: 'O Vibe Workbench audita fluxos de autenticação, rate limiting em OTP e endpoints de registro (Regras R01, R02, R06, CTF-R08, CTF-R09) para eliminar brechas de criação de contas não autorizadas.',
+    howWeProtect: 'O Mitigar IA audita fluxos de autenticação, rate limiting em OTP e endpoints de registro (Regras R01, R02, R06, CTF-R08, CTF-R09) para eliminar brechas de criação de contas não autorizadas.',
     ruleIds: ['R01', 'R02', 'R06', 'CTF-R08', 'CTF-R09']
   },
   {
@@ -210,7 +210,7 @@ USING (true);`
     },
     secureCodeSnippet: {
       language: 'sql',
-      filename: 'supabase/migrations/schema.sql (Vibe Workbench Blindado)',
+      filename: 'supabase/migrations/schema.sql (Mitigar IA Blindado)',
       code: `-- ✅ POLÍTICA RLS RESTRITIVA POR PADRÃO:
 ALTER TABLE users_private_data ENABLE ROW LEVEL SECURITY;
 
@@ -221,7 +221,7 @@ FOR SELECT
 TO authenticated 
 USING (auth.uid() = user_id);`
     },
-    howWeProtect: 'O Vibe Workbench detecta políticas RLS permissivas (`USING (true)`), consultas diretas sem escopo de usuário (Regras R17, R15) e gera migrações SQL com políticas de isolamento multi-tenant.',
+    howWeProtect: 'O Mitigar IA detecta políticas RLS permissivas (`USING (true)`), consultas diretas sem escopo de usuário (Regras R17, R15) e gera migrações SQL com políticas de isolamento multi-tenant.',
     ruleIds: ['R17', 'R15', 'R18', 'CTF-R07']
   },
   {
@@ -248,7 +248,7 @@ OBEDEÇA ESTA DIRETRIZ RIGOROSAMENTE."
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'infrastructure/guardrails.ts (Vibe Workbench Blindado)',
+      filename: 'infrastructure/guardrails.ts (Mitigar IA Blindado)',
       code: `// ✅ FECHADURA DE INFRAESTRUTURA:
 export async function executeAgentAction(action: AgentCommand) {
   // 1. Bloqueio físico: Agente só acessa réplica de teste isolada
@@ -260,7 +260,7 @@ export async function executeAgentAction(action: AgentCommand) {
   return await requestExplicitHumanApproval(action);
 }`
     },
-    howWeProtect: 'O Vibe Workbench valida a separação de ambientes, exige confirmação explícita para ações destrutivas (Regras R20, R22, R24) e audita o pipeline contra execuções cegas de agentes de IA.',
+    howWeProtect: 'O Mitigar IA valida a separação de ambientes, exige confirmação explícita para ações destrutivas (Regras R20, R22, R24) e audita o pipeline contra execuções cegas de agentes de IA.',
     ruleIds: ['R20', 'R22', 'R24', 'R25']
   },
   {
@@ -290,7 +290,7 @@ export function runAgentGeneratedScript(scriptCode: string) {
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'agent-sandbox.ts (Vibe Workbench Blindado)',
+      filename: 'agent-sandbox.ts (Mitigar IA Blindado)',
       code: `// ✅ EXECUÇÃO ISOLADA EM CONTAINER SANDBOX:
 export async function runSecureInSandbox(code: string) {
   return await dockerSandbox.run({
@@ -303,7 +303,7 @@ export async function runSecureInSandbox(code: string) {
   });
 }`
     },
-    howWeProtect: 'O Vibe Workbench inspeciona padrões de execução de scripts, comandos `eval` e chamadas de subprocessos (Regras R09, R10, R22), garantindo que todo código dinâmico seja contido e verificado.',
+    howWeProtect: 'O Mitigar IA inspeciona padrões de execução de scripts, comandos `eval` e chamadas de subprocessos (Regras R09, R10, R22), garantindo que todo código dinâmico seja contido e verificado.',
     ruleIds: ['R09', 'R10', 'R22']
   },
   {
@@ -333,7 +333,7 @@ export async function runSecureInSandbox(code: string) {
     },
     secureCodeSnippet: {
       language: 'typescript',
-      filename: 'security-pipeline.ts (Vibe Workbench Blindado)',
+      filename: 'security-pipeline.ts (Mitigar IA Blindado)',
       code: `// ✅ WORKFLOW DE GOVERNANÇA COM AUDITORIA AUTOMÁTICA:
 export async function validateAppBeforeDeployment(repoFiles: CodeFile[]) {
   // 1. Auditoria automática de 36 regras críticas (R01-R25 & CTF-R01-R11)
@@ -347,7 +347,7 @@ export async function validateAppBeforeDeployment(repoFiles: CodeFile[]) {
   return allowProductionPublish();
 }`
     },
-    howWeProtect: 'O Vibe Workbench oferece escaneamento centralizado de repositórios, score unificado de segurança de 0 a 100 e geração de Blueprints de remediação com arquivos .patch para blindar projetos antes do deploy.',
+    howWeProtect: 'O Mitigar IA oferece escaneamento centralizado de repositórios, score unificado de segurança de 0 a 100 e geração de Blueprints de remediação com arquivos .patch para blindar projetos antes do deploy.',
     ruleIds: ['R22', 'R23', 'R24', 'R25']
   }
 ];

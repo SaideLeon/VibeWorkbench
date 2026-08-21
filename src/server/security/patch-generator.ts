@@ -1,5 +1,4 @@
-import { ScoredFinding } from './scoring';
-import { getRuleById } from './ruleset';
+export { sanitizeUnifiedDiff } from '@/utils/patch-sanitizer';
 
 export interface FileDiff {
   path: string;
@@ -22,15 +21,15 @@ export function formatGitPatchHeader(params: {
   score: number;
 }): string {
   const dateStr = params.date || new Date().toUTCString();
-  const author = params.authorName || 'Vibe Workbench Security Engine';
-  const email = params.authorEmail || 'security@vibeworkbench.local';
+  const author = params.authorName || 'Mitigar IA Security Engine';
+  const email = params.authorEmail || 'security@mitigaria.local';
 
   return `From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: ${author} <${email}>
 Date: ${dateStr}
 Subject: [PATCH] Fix ${params.findingsCount} security vulnerabilities (Score: ${params.score}/100)
 
-Este patch foi gerado automaticamente pelo Vibe Workbench Security Auditor.
+Este patch foi gerado automaticamente pelo Mitigar IA Security Auditor.
 Aplica as correcções recomendadas no Blueprint de Segurança para o projecto:
 ${params.projectName}
 
@@ -41,24 +40,4 @@ ou
 
 ---
 `;
-}
-
-/**
- * Normaliza e limpa a saída de um patch unificado Git
- */
-export function sanitizeUnifiedDiff(rawDiff: string): string {
-  let cleaned = rawDiff.trim();
-  // Remove blocos de markdown ```diff ou ``` caso o LLM tenha encapsulado
-  if (cleaned.startsWith('```diff')) {
-    cleaned = cleaned.replace(/^```diff\r?\n/, '');
-  } else if (cleaned.startsWith('```patch')) {
-    cleaned = cleaned.replace(/^```patch\r?\n/, '');
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.replace(/^```\r?\n/, '');
-  }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.replace(/\r?\n```$/, '');
-  }
-
-  return cleaned.trim();
 }

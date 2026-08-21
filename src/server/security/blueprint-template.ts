@@ -216,7 +216,7 @@ ${checklistMd}
 
 **Projecto:** ${projectName}  
 **Data da auditoria:** ${date}  
-**Auditado por:** Vibe Workbench Security Audit Skill v1.0
+**Auditado por:** Mitigar IA Security Audit Skill v1.0
 
 ---
 

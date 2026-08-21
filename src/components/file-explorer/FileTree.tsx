@@ -176,7 +176,7 @@ export const FileTree = ({
       </div>
 
       {/* Virtualized File List */}
-      <div ref={parentRef} className="flex-1 overflow-y-auto pr-1">
+      <div ref={parentRef} className="flex-1 min-h-0 overflow-y-auto pr-1">
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,

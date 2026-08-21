@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { SecurityAuditResult } from '@/types';
 import { runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
+import { githubApi } from '@/services/github.api';
 import { limitTextContext } from '@/utils/textLimiter';
 
 export interface AuditProgress {
@@ -8,6 +9,17 @@ export interface AuditProgress {
   current?: number;
   total?: number;
   message?: string;
+}
+
+export interface CreatedPullRequestInfo {
+  id: number;
+  number: number;
+  html_url: string;
+  title: string;
+  state: string;
+  branch: string;
+  baseBranch: string;
+  filesCount: number;
 }
 
 export function useSecurityAudit() {
@@ -19,6 +31,8 @@ export function useSecurityAudit() {
   const [auditError, setAuditError] = useState<string | null>(null);
   const [isGeneratingBlueprint, setIsGeneratingBlueprint] = useState(false);
   const [isGeneratingPatch, setIsGeneratingPatch] = useState(false);
+  const [isCreatingPR, setIsCreatingPR] = useState(false);
+  const [createdPR, setCreatedPR] = useState<CreatedPullRequestInfo | null>(null);
   const [lastContextFiles, setLastContextFiles] = useState<{ path: string; content: string }[]>([]);
 
   const runAudit = useCallback(async (
@@ -30,6 +44,7 @@ export function useSecurityAudit() {
     setAuditError(null);
     setBlueprintMarkdown(null);
     setPatchContent(null);
+    setCreatedPR(null);
     setAuditProgress({ 
       phase: 'auditing', 
       message: `A analisar ${files.length} ficheiro(s) contra catálogo de segurança...` 
@@ -137,6 +152,34 @@ export function useSecurityAudit() {
     }
   }, [blueprintMarkdown, patchContent]);
 
+  const createPullRequest = useCallback(async (
+    owner: string,
+    repo: string,
+    baseBranch?: string,
+    apiKey?: string
+  ): Promise<CreatedPullRequestInfo> => {
+    if (!blueprintMarkdown && !patchContent) {
+      throw new Error('Execute a auditoria de segurança antes de abrir o Pull Request.');
+    }
+
+    setIsCreatingPR(true);
+    try {
+      const res = await githubApi.createPullRequest({
+        owner,
+        repo,
+        baseBranch,
+        blueprintMarkdown: blueprintMarkdown || undefined,
+        patchContent: patchContent || undefined,
+        apiKey,
+      });
+
+      setCreatedPR(res.pullRequest);
+      return res.pullRequest;
+    } finally {
+      setIsCreatingPR(false);
+    }
+  }, [blueprintMarkdown, patchContent]);
+
   const downloadBlueprint = useCallback(async (projectName: string, apiKey?: string) => {
     if (!auditResult) return;
 
@@ -175,6 +218,7 @@ export function useSecurityAudit() {
     setAuditResult(null);
     setBlueprintMarkdown(null);
     setPatchContent(null);
+    setCreatedPR(null);
     setAuditError(null);
     setAuditProgress({ phase: 'idle' });
   }, []);
@@ -189,11 +233,14 @@ export function useSecurityAudit() {
     auditError,
     isGeneratingBlueprint,
     isGeneratingPatch,
+    isCreatingPR,
+    createdPR,
     lastContextFiles,
     runAudit,
     downloadBlueprint,
     downloadPatch,
     generatePatch,
+    createPullRequest,
     resetAudit,
   };
 }

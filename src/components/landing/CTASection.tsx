@@ -35,10 +35,6 @@ export const CTASection = ({ onAnalyze, isLoading, onOpenWorkbench }: CTASection
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-8">
         
         <div className="space-y-4 max-w-3xl mx-auto">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Auditoria Instantânea e Gratuita
-          </span>
           <h2 className="text-3xl sm:text-5xl font-black text-white tracking-tight">
             Não Espere Seus Dados Vazarem.{' '}
             <span className="bg-gradient-to-r from-red-400 via-amber-300 to-indigo-400 bg-clip-text text-transparent">
@@ -46,7 +42,7 @@ export const CTASection = ({ onAnalyze, isLoading, onOpenWorkbench }: CTASection
             </span>
           </h2>
           <p className="text-gray-300 text-sm sm:text-base leading-relaxed">
-            Cole o link do seu repositório GitHub e deixe o motor de raciocínio do Vibe Workbench verificar todas as 7 brechas e gerar o Blueprint de remediação.
+            Cole o link do seu repositório GitHub e deixe o motor de raciocínio do Mitigar IA verificar todas as 7 brechas e gerar o Blueprint de remediação.
           </p>
         </div>
 

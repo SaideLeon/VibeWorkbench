@@ -18,10 +18,6 @@ export const VibeCodingRealitySection = ({ onAuditClick }: { onAuditClick: () =>
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Flame className="w-3.5 h-3.5" />
-            O Fenômeno do VibeCoding
-          </span>
           <h2 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             A Revolução que Criou Milhares de Startups... e um <span className="text-red-400">Mar de Vulnerabilidades</span>
           </h2>
@@ -92,7 +88,7 @@ export const VibeCodingRealitySection = ({ onAuditClick }: { onAuditClick: () =>
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h3 className="text-lg font-bold text-white">O Caso TiaApp (Julho 2025)</h3>
+                    <h3 className="text-lg font-bold text-white">O Caso TEA (Julho 2025)</h3>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30">CASO REAL</span>
                   </div>
                   <p className="text-xs text-gray-400">1,6 milhão de usuários e 0 linhas escritas por humanos</p>
@@ -101,7 +97,7 @@ export const VibeCodingRealitySection = ({ onAuditClick }: { onAuditClick: () =>
 
               <div className="space-y-4 text-sm text-gray-300 leading-relaxed">
                 <p>
-                  O aplicativo <strong>TiaApp</strong> atingiu o topo de downloads da App Store mundial com mais de <strong>1,6 milhões de usuárias</strong>. O app permitia que mulheres avaliassem anonimamente encontros e, no cadastro, solicitava selfies e documentos com a promessa de exclusão imediata.
+                  O aplicativo <strong>TEA</strong> atingiu o topo de downloads da App Store mundial com mais de <strong>1,6 milhões de usuárias</strong>. O app permitia que mulheres avaliassem anonimamente encontros e, no cadastro, solicitava selfies e documentos com a promessa de exclusão imediata.
                 </p>
                 <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-xs text-red-300 space-y-2">
                   <div className="font-bold flex items-center gap-1.5 text-red-400">

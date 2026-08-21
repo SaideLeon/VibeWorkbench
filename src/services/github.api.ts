@@ -84,6 +84,121 @@ export const githubApi = {
     return text;
   },
 
+  async createPullRequest(params: {
+    owner: string;
+    repo: string;
+    baseBranch?: string;
+    blueprintMarkdown?: string;
+    patchContent?: string;
+    apiKey?: string;
+  }): Promise<{
+    success: boolean;
+    pullRequest: {
+      id: number;
+      number: number;
+      html_url: string;
+      title: string;
+      state: string;
+      branch: string;
+      baseBranch: string;
+      filesCount: number;
+    };
+  }> {
+    const res = await fetch('/api/github/pull-request', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Falha ao criar Pull Request no GitHub.';
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        errorMsg += ` (${res.status} ${res.statusText})`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async getCommits(owner: string, repo: string, branch?: string): Promise<Array<{
+    sha: string;
+    shortSha: string;
+    message: string;
+    author: {
+      name: string;
+      avatar_url: string | null;
+      date: string | null;
+    };
+    html_url: string;
+    isHead: boolean;
+    parents: string[];
+  }>> {
+    const branchParam = branch ? `&branch=${encodeURIComponent(branch)}` : '';
+    const res = await fetch(`/api/github/commits?owner=${owner}&repo=${repo}${branchParam}`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Falha ao buscar histórico de commits.';
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        errorMsg += ` (${res.status} ${res.statusText})`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    const data = await res.json();
+    return data.commits || [];
+  },
+
+  async rollbackCommit(params: {
+    owner: string;
+    repo: string;
+    branch?: string;
+    targetSha: string;
+    mode?: 'force_reset' | 'safe_revert';
+  }): Promise<{
+    success: boolean;
+    mode: string;
+    branch: string;
+    targetSha: string;
+    newCommitSha?: string;
+    previousHeadSha: string;
+    message: string;
+    html_url?: string;
+  }> {
+    const res = await fetch('/api/github/rollback', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...getAuthHeaders(),
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Falha ao reverter commit no GitHub.';
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        errorMsg += ` (${res.status} ${res.statusText})`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
   clearCache() {
     fileCache.clear();
   }

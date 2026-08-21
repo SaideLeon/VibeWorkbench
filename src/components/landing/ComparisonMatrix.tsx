@@ -67,12 +67,8 @@ export const ComparisonMatrix = ({ onAuditClick }: { onAuditClick: () => void })
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-            <Sparkles className="w-3.5 h-3.5" />
-            Quadro Comparativo
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
-            VibeCoding Tradicional vs. <span className="text-indigo-400">Vibe Workbench</span>
+            VibeCoding Tradicional vs. <span className="text-indigo-400">Mitigar IA</span>
           </h2>
           <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
             Entenda por que confiar no código gerado por IA sem uma camada de auditoria e infraestrutura especializada coloca seu negócio e seus clientes em risco.
@@ -92,7 +88,7 @@ export const ComparisonMatrix = ({ onAuditClick }: { onAuditClick: () => void })
                     ❌ VibeCoding Sem Auditoria
                   </th>
                   <th className="p-4 sm:p-5 text-xs font-bold uppercase tracking-wider text-emerald-400 w-1/3 bg-emerald-500/5">
-                    🛡️ Vibe Workbench Blindado
+                    🛡️ Mitigar IA Blindado
                   </th>
                 </tr>
               </thead>

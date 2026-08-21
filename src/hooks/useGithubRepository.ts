@@ -1,7 +1,7 @@
 import { useState, useCallback, startTransition } from 'react';
 import { FileNode } from '@/types';
 import { githubApi } from '@/services/github.api';
-import { getFolderDescendantFiles, getAllCodeFiles, isCodeFile } from '@/utils/file-selection';
+import { getFolderDescendantFiles, getAllCodeFiles, getAuditableCodeFiles, isCodeFile } from '@/utils/file-selection';
 
 export function parseGithubUrl(rawUrl: string): { owner: string; repo: string } | null {
   if (!rawUrl || typeof rawUrl !== 'string') return null;
@@ -27,7 +27,16 @@ export function useGithubRepository() {
   const [files, setFiles] = useState<FileNode[]>([]);
   const [branch, setBranch] = useState<string>('main');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setErrorState] = useState<string | null>(null);
+
+  const setError = useCallback((msg: string | null) => {
+    setErrorState(msg);
+    if (msg) {
+      setTimeout(() => {
+        setErrorState(prev => (prev === msg ? null : prev));
+      }, 4500);
+    }
+  }, []);
   const [selectedFile, setSelectedFile] = useState<{ path: string, content: string } | null>(null);
   
   // Selected paths for batch operations / security audit
@@ -37,7 +46,7 @@ export function useGithubRepository() {
   const [fileHistory, setFileHistory] = useState<{ path: string, content: string }[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
 
-  const analyzeRepository = useCallback(async (url: string, performAnalysis: (files: { path: string, content: string }[]) => Promise<string>) => {
+  const analyzeRepository = useCallback(async (url: string) => {
     setIsLoading(true);
     setError(null);
     setSelectedPaths(new Set());
@@ -61,23 +70,6 @@ export function useGithubRepository() {
       const currentBranch = treeData.branch || 'main';
       setBranch(currentBranch);
       setRepoUrl(url);
-      
-      // Fetch key files for initial analysis
-      // Filter for blobs only
-      const priorityFiles = allNodes.filter((f) => 
-        f.type === 'blob' && f.path.match(/(README|package\.json|tsconfig\.json|src\/main|src\/App|server\.ts|\.py|\.js|\.tsx)$/i)
-      ).slice(0, 5);
-
-      const fileContents = await Promise.all(priorityFiles.map(async (f) => {
-        try {
-          const content = await githubApi.getFileContent(owner, repo, f.path, currentBranch);
-          return { path: f.path, content };
-        } catch {
-          return { path: f.path, content: '' };
-        }
-      }));
-
-      await performAnalysis(fileContents.filter(f => f.content));
       
       return { owner, repo, allFiles: allNodes, branch: currentBranch };
     } catch (err) {
@@ -150,10 +142,10 @@ export function useGithubRepository() {
     });
   }, [files]);
 
-  // Select all code files in the project
+  // Select all auditable code files in the project (excluding noise/non-critical docs and lockfiles)
   const selectAllPaths = useCallback(() => {
-    const codeFiles = getAllCodeFiles(files);
-    setSelectedPaths(new Set(codeFiles.map(f => f.path)));
+    const auditableFiles = getAuditableCodeFiles(files);
+    setSelectedPaths(new Set(auditableFiles.map(f => f.path)));
   }, [files]);
 
   // Deselect all files
@@ -233,6 +225,7 @@ export function useGithubRepository() {
 
   return {
     repoUrl,
+    branch,
     files,
     isLoading,
     error,

@@ -139,9 +139,10 @@ ${f.evidence || '(ver ficheiro indicado)'}`;
       Gere um Blueprint de Correcção de Segurança EXTREMAMENTE DETALHADO, rigoroso e 100% pronto para produção para as vulnerabilidades identificadas.
       
       ESTRUTURA E DIRETRIZES DE QUALIDADE OBRIGATÓRIAS:
-      1. CÓDIGO 100% COMPLETO E PRONTO PARA COPIAR E COLAR:
+      1. CÓDIGO 100% COMPLETO E PRESERVAÇÃO RIGOROSA:
          - Todo código nos passos de implementação DEVE estar totalmente escrito, funcional e pronto para substituição direta ou criação do ficheiro.
-         - NUNCA use comentários de omissão como "// ... resto do código ...", "// TODO", "// adicione aqui", ou "// lógica existente". O desenvolvedor deve poder copiar o código diretamente para o arquivo sem precisar pensar ou reescrever.
+         - NUNCA use comentários de omissão como "// ... resto do código ...", "// TODO", "// adicione aqui", ou "// lógica existente".
+         - PRESERVAÇÃO DE CÓDIGO DE PRODUÇÃO: Em ficheiros existentes de UI/rotas (ex: formulários de cadastro, páginas, componentes), PRESERVE todos os campos de negócio (ex: bairro, whatsapp, bio, role, plano, campos adicionais, toasts, styling Tailwind). A segurança deve ser resolvida preferencialmente na raiz (migrações RLS, proxies de API, validação segura) sem apagar ou simplificar formulários reais para stubs didáticos.
          - Se for uma migração SQL, escreva a migração completa com DROP/CREATE POLICY, triggers, funções RPC SECURITY DEFINER, grants, etc.
          - Se for código TypeScript/Next.js/Node/Python, escreva todos os imports, tipagens, validações, handlers e retornos.
 

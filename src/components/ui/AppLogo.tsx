@@ -1,5 +1,7 @@
+'use client';
+
+import { useState } from 'react';
 import Image from 'next/image';
-import logoImg from '@/assets/images/vibe_workbench_logo_1786895338740.jpg';
 
 interface AppLogoProps {
   size?: 'sm' | 'md' | 'lg' | 'xl';
@@ -14,6 +16,8 @@ export const AppLogo = ({
   subtitle,
   className = '',
 }: AppLogoProps) => {
+  const [imgSrc, setImgSrc] = useState<string>('/logotipo.png');
+
   const sizeMap = {
     sm: { container: 'w-7 h-7', img: 28, text: 'text-sm', sub: 'text-[9px]' },
     md: { container: 'w-8 h-8', img: 32, text: 'text-base', sub: 'text-[10px]' },
@@ -25,22 +29,28 @@ export const AppLogo = ({
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className={`relative ${conf.container} rounded-xl overflow-hidden shadow-md shadow-indigo-500/20 border border-white/10 shrink-0 bg-[#0d0d12]`}>
-        <Image
-          src={logoImg}
-          alt="Vibe Workbench Logo"
+      <div className={`relative ${conf.container} rounded-xl overflow-hidden shadow-lg shadow-blue-500/25 border border-blue-500/20 shrink-0 bg-[#070b14] flex items-center justify-center p-0.5`}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imgSrc}
+          alt="Mitigar IA Logo"
           width={conf.img}
           height={conf.img}
-          className="w-full h-full object-cover"
-          referrerPolicy="no-referrer"
-          priority
+          className="w-full h-full object-contain drop-shadow-sm"
+          onError={() => {
+            if (imgSrc === '/logotipo.png') {
+              setImgSrc('/logo.png');
+            } else if (imgSrc === '/logo.png') {
+              setImgSrc('/api/icon');
+            }
+          }}
         />
       </div>
 
       {showText && (
         <div className="flex flex-col">
           <span className={`font-bold ${conf.text} tracking-tight text-white leading-none`}>
-            Vibe Workbench
+            Mitigar IA
           </span>
           {subtitle && (
             <span className={`${conf.sub} text-gray-400 font-mono mt-0.5`}>

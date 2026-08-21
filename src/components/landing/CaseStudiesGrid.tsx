@@ -15,7 +15,7 @@ import {
 export const CaseStudiesGrid = () => {
   const cases = [
     {
-      title: 'TiaApp: 70.000 Documentos no 4chan',
+      title: 'TEA App: 70.000 Documentos no 4chan',
       tag: 'Vazamento de Identidade',
       date: 'Julho de 2025',
       metric: '1,6 Milhões de Usuárias',
@@ -88,15 +88,11 @@ export const CaseStudiesGrid = () => {
         
         {/* Header */}
         <div className="text-center max-w-3xl mx-auto space-y-4 mb-16">
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20">
-            <ShieldAlert className="w-3.5 h-3.5" />
-            Evidências Históricas
-          </span>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight">
             Casos Reais Documentados
           </h2>
           <p className="text-gray-400 text-sm sm:text-base leading-relaxed">
-            Todas as vulnerabilidades que o Vibe Workbench neutraliza já causaram vazamentos massivos e prejuízos reais no ecossistema global de VibeCoding.
+            Todas as vulnerabilidades que o Mitigar IA neutraliza já causaram vazamentos massivos e prejuízos reais no ecossistema global de VibeCoding.
           </p>
         </div>
 

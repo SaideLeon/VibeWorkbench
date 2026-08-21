@@ -76,11 +76,8 @@ export const ChatInterface = ({
   };
 
   return (
-    <div className={cn(
-      "flex flex-col bg-[#111] rounded-xl border border-white/10 overflow-hidden transition-all duration-300", 
-      isMaximized ? "h-full" : "h-full lg:h-[600px]"
-    )}>
-      <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between">
+    <div className="flex flex-col bg-[#111] rounded-xl border border-white/10 overflow-hidden transition-all duration-300 h-full flex-1 min-h-0 w-full">
+      <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="font-medium flex items-center gap-2">
             <MessageSquare className="w-4 h-4 text-indigo-400" />
@@ -95,14 +92,42 @@ export const ChatInterface = ({
         </div>
         <button 
           onClick={onToggleMaximize}
-          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
+          className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white cursor-pointer"
           title={isMaximized ? "Restaurar" : "Maximizar"}
         >
           {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
         </button>
       </div>
       
-      <div className="flex-1 overflow-y-auto p-4 space-y-6" ref={scrollRef}>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 space-y-6" ref={scrollRef}>
+        {messages.length === 0 && !isThinking && (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-gray-400 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-600/15 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+              <MessageSquare className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h4 className="text-sm font-semibold text-gray-200">Assistente de Código & Raciocínio</h4>
+              <p className="text-xs text-gray-400 max-w-sm">
+                O repositório foi carregado. Você pode fazer perguntas sobre qualquer arquivo, arquitetura, ou ir à aba <strong>Segurança</strong> para executar a auditoria manual.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center pt-2">
+              <button
+                onClick={() => onSendMessage("Qual é a estrutura principal deste projeto e as principais tecnologias usadas?")}
+                className="text-xs bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                Estrutura & Tecnologias
+              </button>
+              <button
+                onClick={() => onSendMessage("Explique como o fluxo de dados e autenticação funcionam neste projeto.")}
+                className="text-xs bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg px-3 py-1.5 transition-colors cursor-pointer"
+              >
+                Fluxo de Autenticação
+              </button>
+            </div>
+          </div>
+        )}
+
         {messages.map((msg, idx) => (
           <div key={idx} className={cn("flex gap-4", msg.role === 'user' ? "flex-row-reverse" : "")}>
             <div className={cn(

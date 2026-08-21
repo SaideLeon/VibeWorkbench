@@ -41,11 +41,6 @@ export const HeroSection = ({
     }
   };
 
-  const handleQuickSelect = (url: string) => {
-    setRepoInput(url);
-    onAnalyze(url);
-  };
-
   return (
     <section className="relative overflow-hidden pt-12 pb-20 md:pt-20 md:pb-28 border-b border-white/10">
       {/* Background Gradients & Glows */}
@@ -62,16 +57,19 @@ export const HeroSection = ({
           className="text-center max-w-4xl mx-auto space-y-6"
         >
           <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15]">
-            41% do código mundial é gerado por IA.{' '}
+            Sua IA construiu o app.{' '}
             <span className="bg-gradient-to-r from-red-400 via-amber-300 to-indigo-400 bg-clip-text text-transparent">
-              Quem está protegendo o seu app contra as 7 falhas invisíveis?
+              Nós encontramos o que ela esqueceu de proteger.
             </span>
           </h1>
 
           <p className="text-base sm:text-xl text-gray-300 max-w-3xl mx-auto leading-relaxed font-normal">
-            O <strong>VibeCoding</strong> democratizou a criação de SaaS e aplicativos em minutos. Mas a inteligência artificial ignora autorização no servidor, expõe chaves de API nos navegadores e deixa bancos inteiros desprotegidos.
+            Analise o código, descubra vulnerabilidades invisíveis e corrija os riscos antes que cheguem à produção.
             <span className="block mt-2 text-gray-400 text-sm sm:text-base">
-              O <strong>Vibe Workbench</strong> audita seus repositórios GitHub, localiza as brechas em segundos e gera <strong>Blueprints e patches de correção automática</strong>.
+              O <strong>Mitigar IA</strong> audita seus repositórios GitHub, localiza as brechas em segundos e gera <strong>Blueprints e patches de correção automática</strong>.
+            </span>
+            <span className="block mt-3 text-gray-500 text-xs sm:text-sm italic">
+              Sem processo de compliance, sem sales call, sem preço de plataforma corporativa — feito para quem constrói sozinho ou em time pequeno.
             </span>
           </p>
         </motion.div>
@@ -119,23 +117,6 @@ export const HeroSection = ({
               </button>
             </div>
           </form>
-
-          {/* Quick Examples */}
-          <div className="flex flex-wrap items-center justify-center gap-2 mt-4 text-xs text-gray-400">
-            <span className="text-gray-500 font-medium">Repositórios de exemplo:</span>
-            <button
-              onClick={() => handleQuickSelect('https://github.com/facebook/react')}
-              className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-colors"
-            >
-              facebook/react
-            </button>
-            <button
-              onClick={() => handleQuickSelect('https://github.com/shadcn-ui/ui')}
-              className="px-2.5 py-1 rounded-md bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 transition-colors"
-            >
-              shadcn-ui/ui
-            </button>
-          </div>
         </motion.div>
 
         {/* Quick Action Navigation Buttons */}

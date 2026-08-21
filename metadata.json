@@ -1,5 +1,5 @@
 {
-  "name": "Vibe Workbench",
+  "name": "Mitigar IA",
   "description": "An intelligent GitHub repository analyzer and security auditor with multi-file and directory selection, automated vulnerability checks against security rules, and remediation blueprints.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
