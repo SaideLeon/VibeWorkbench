@@ -100,13 +100,32 @@ export function useSecurityAudit() {
       );
 
       setAuditResult(streamRes.auditResult);
-      setBlueprintMarkdown(streamRes.blueprintMarkdown);
+      let finalMarkdown = streamRes.blueprintMarkdown;
+
+      // Fallback de segurança: Se o stream não retornou blueprintMarkdown por queda de conexão, gera sob demanda
+      if (!finalMarkdown && streamRes.auditResult?.findings) {
+        try {
+          setIsGeneratingBlueprint(true);
+          finalMarkdown = await generateSecurityBlueprint(
+            streamRes.auditResult.findings,
+            limitedFiles,
+            projectName,
+            apiKey
+          );
+        } catch (bpErr) {
+          console.warn('Fallback de geração de Blueprint falhou:', bpErr);
+        } finally {
+          setIsGeneratingBlueprint(false);
+        }
+      }
+
+      setBlueprintMarkdown(finalMarkdown || '');
 
       // Passo de geração de patch defensivo com base no Blueprint
-      if (streamRes.blueprintMarkdown) {
+      if (finalMarkdown) {
         try {
           const patch = await generateSecurityPatch(
-            streamRes.blueprintMarkdown,
+            finalMarkdown,
             projectName,
             apiKey
           );
@@ -116,16 +135,40 @@ export function useSecurityAudit() {
         }
       }
 
-      return { auditResult: streamRes.auditResult, blueprint: streamRes.blueprintMarkdown };
+      return { auditResult: streamRes.auditResult, blueprint: finalMarkdown || '' };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido na auditoria e blueprint.';
       setAuditError(message);
       throw err;
     } finally {
       setIsAuditing(false);
+      setIsGeneratingBlueprint(false);
       setAuditProgress({ phase: 'idle' });
     }
   }, [isHarnessAuditMode]);
+
+  const compileBlueprintOnDemand = useCallback(async (projectName: string, apiKey?: string): Promise<string> => {
+    if (blueprintMarkdown) {
+      return blueprintMarkdown;
+    }
+    if (!auditResult) {
+      throw new Error('Nenhuma auditoria realizada anteriormente para compilar o Blueprint.');
+    }
+
+    setIsGeneratingBlueprint(true);
+    try {
+      const markdown = await generateSecurityBlueprint(
+        auditResult.findings,
+        lastContextFiles,
+        projectName,
+        apiKey
+      );
+      setBlueprintMarkdown(markdown);
+      return markdown;
+    } finally {
+      setIsGeneratingBlueprint(false);
+    }
+  }, [auditResult, blueprintMarkdown, lastContextFiles]);
 
   const generatePatch = useCallback(async (projectName: string, apiKey?: string): Promise<string> => {
     if (patchContent) {
@@ -270,6 +313,7 @@ export function useSecurityAudit() {
     createdPR,
     lastContextFiles,
     runAudit,
+    compileBlueprintOnDemand,
     downloadBlueprint,
     downloadPatch,
     generatePatch,

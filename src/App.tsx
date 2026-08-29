@@ -93,6 +93,7 @@ export default function App() {
     isHarnessAuditMode,
     toggleHarnessAuditMode,
     runAudit,
+    compileBlueprintOnDemand,
     downloadBlueprint: downloadSecurityBlueprint,
     downloadPatch: downloadSecurityPatch,
     generatePatch: generateSecurityPatch,
@@ -227,6 +228,17 @@ export default function App() {
     } catch (err: any) {
       hideToast(loadingToastId);
       showToast(err.message || 'Falha ao gerar blueprint de segurança.', 'error');
+    }
+  };
+
+  const handleCompileBlueprint = async () => {
+    if (!repoUrl) return '';
+    const projectName = repoUrl.split('github.com/')[1] || repoUrl;
+    try {
+      return await compileBlueprintOnDemand(projectName, apiKeys[keyIndex]);
+    } catch (err: any) {
+      showToast(err.message || 'Falha ao compilar blueprint.', 'error');
+      return '';
     }
   };
 
@@ -603,6 +615,7 @@ export default function App() {
                       createdPR={createdPR}
                       onRunAudit={handleRunSecurityAudit}
                       onDownloadBlueprint={handleDownloadSecurityBlueprint}
+                      onCompileBlueprint={handleCompileBlueprint}
                       onDownloadPatch={handleDownloadSecurityPatch}
                       onGeneratePatch={handleGenerateSecurityPatch}
                       onCreatePullRequest={handleCreatePullRequest}

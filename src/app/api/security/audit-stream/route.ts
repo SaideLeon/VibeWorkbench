@@ -223,46 +223,72 @@ export async function POST(req: NextRequest) {
 
         sendEvent('audit_result', auditResult);
 
-        // 3. Geração do Blueprint Detalhado
+        // 3. Geração Instantânea e Confiável do Blueprint
         sendEvent('status', {
           phase: 'generating_blueprint',
-          message: 'A construir Blueprint de segurança detalhado com resoluções e testes...'
+          message: 'A compilar Blueprint de segurança detalhado com resoluções completas e testes...'
         });
 
-        let blueprintMd = '';
-        if (combinedFindings.length === 0) {
-          blueprintMd = renderSecurityBlueprint({
-            projectName: projectName || 'Projeto',
-            date: new Date().toISOString().split('T')[0],
-            findings: [],
-            contents: [],
-          });
-        } else {
-          // Solicita enriquecimento IA do blueprint com fallback seguro
-          let bpItems: FindingContent[] = [];
-          let globalData: any = {};
+        // 3.1 Gera imediatamente a versão determinística de alta qualidade (zero delay, sem risco de timeout)
+        const instantVerifiedContents = ensureCompleteBlueprintItems([], combinedFindings, contextFiles);
+        let blueprintMd = renderSecurityBlueprint({
+          projectName: projectName || 'Projeto',
+          date: new Date().toISOString().split('T')[0],
+          findings: combinedFindings,
+          contents: instantVerifiedContents,
+          globalContent: {
+            checklistObrigatorio: [
+              'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
+              'Rodar suite completa de testes de segurança automatizados',
+              'Garantir rotação imediata de quaisquer chaves ou credenciais expostas'
+            ],
+            checklistRecomendado: [
+              'Habilitar scan de segredos e linters de segurança no CI/CD',
+              'Configurar proteção de branches e revisão obrigatória de PRs',
+              'Revisar logs de auditoria e telemetria de segurança'
+            ],
+            referencias: [
+              { recurso: 'OWASP Top 10 Security Risks', url: 'https://owasp.org/www-project-top-ten/', descricao: 'Guia oficial de referência para segurança de aplicações' },
+              { recurso: 'CWE Top 25 Most Dangerous Software Weaknesses', url: 'https://cwe.mitre.org/top25/', descricao: 'Catálogo de fraquezas de software mais críticas' }
+            ]
+          }
+        });
 
+        // Emite imediatamente o Blueprint gerado para a UI nunca ficar presa em loading
+        sendEvent('blueprint_result', { blueprintMarkdown: blueprintMd });
+
+        // 3.2 Tentativa de Enriquecimento Contextual com IA para arquivos com achados (com timeout estrito de 6s)
+        if (combinedFindings.length > 0) {
           try {
-            const ai = getAIClient(apiKey);
-            const fileContext = contextFiles
-              .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
-              .join('\n');
+            // Filtra apenas os arquivos diretamente afetados pelas vulnerabilidades encontradas
+            const findingFilePaths = new Set(
+              combinedFindings.map(f => (f.location || '').split(':')[0].trim().toLowerCase()).filter(Boolean)
+            );
 
+            const relevantContextFiles = contextFiles.filter(f => 
+              findingFilePaths.has(f.path.toLowerCase()) ||
+              Array.from(findingFilePaths).some(p => p && (f.path.toLowerCase().endsWith(p) || p.endsWith(f.path.toLowerCase())))
+            ).slice(0, 10); // Limite de 10 arquivos para performance ultrarrápida
+
+            const relevantFileContext = relevantContextFiles.length > 0
+              ? relevantContextFiles.map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n')
+              : contextFiles.slice(0, 5).map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n');
+
+            const ai = getAIClient(apiKey);
             const blueprintPrompt = `
               Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
-              Gere o conteúdo detalhado de resolução para cada vulnerabilidade identificada.
+              Melhore o conteúdo de resolução das vulnerabilidades identificadas abaixo.
 
               DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
-              - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, melhorado, pronto para substituir o ficheiro anterior na íntegra.
-              - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código", "// adicione lógica").
-              - O usuário deve poder apenas copiar o código e colar diretamente no projeto, sem ter que pensar ou programar nada.
+              - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, pronto para substituir o ficheiro anterior na íntegra.
+              - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código").
               - Em "teste", forneça o código de teste unitário/segurança completo com describe/it executável.
 
-              CÓDIGO-FONTE DOS ARQUIVOS AUDITADOS:
-              ${fileContext}
+              CÓDIGO-FONTE RELEVANTE:
+              ${relevantFileContext}
 
-              VULNERABILIDADES IDENTIFICADAS:
-              ${combinedFindings.map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
+              VULNERABILIDADES:
+              ${combinedFindings.slice(0, 15).map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
 
               Responda em JSON rigoroso com a estrutura:
               {
@@ -270,63 +296,64 @@ export async function POST(req: NextRequest) {
                   {
                     "index": 0,
                     "titulo": "Título conciso da vulnerabilidade e resolução",
-                    "codigoActual": "código vulnerável existente extraído do arquivo",
+                    "codigoActual": "código vulnerável existente",
                     "codigoActualLinguagem": "typescript",
-                    "porQueExploravel": "Explicação detalhada da falha e como pode ser explorada",
+                    "porQueExploravel": "Explicação detalhada da falha",
                     "impacto": ["Impacto 1", "Impacto 2"],
-                    "diagrama": "ASCII diagram comparando ANTES vs DEPOIS",
-                    "passos": [
-                      {
-                        "titulo": "Substituir arquivo com versão protegida",
-                        "linguagem": "typescript",
-                        "comentario": "Substitua o arquivo integralmente por esta versão corrigida:",
-                        "codigo": "Código 100% completo pronto para copiar e colar"
-                      }
-                    ],
-                    "teste": {
-                      "caminhoFicheiro": "src/__tests__/security/test.test.ts",
-                      "comando": "npx vitest run src/__tests__/security/test.test.ts",
-                      "linguagem": "typescript",
-                      "codigo": "describe('...', () => { it('...', () => { ... }) })",
-                      "resultadoEsperado": "O teste valida o bloqueio do ataque e a aceitação de requisições legítimas"
-                    },
-                    "checklist": ["Item 1", "Item 2"],
+                    "diagrama": "ASCII diagram",
+                    "passos": [{ "titulo": "Substituir arquivo", "linguagem": "typescript", "codigo": "código completo" }],
+                    "teste": { "caminhoFicheiro": "src/__tests__/security/test.test.ts", "comando": "npx vitest run src/__tests__/security/test.test.ts", "linguagem": "typescript", "codigo": "describe(...)", "resultadoEsperado": "OK" },
+                    "checklist": ["Item 1"],
                     "esforco": "Baixo (< 30min)"
                   }
-                ],
-                "checklistObrigatorio": ["Aplicar correções críticas", "Rodar suite de testes de segurança"],
-                "checklistRecomendado": ["Ativar monitoramento e logs de auditoria"],
-                "referencias": [{ "recurso": "OWASP Top 10", "descricao": "Guia oficial de mitigação" }]
+                ]
               }
             `;
 
-            const bpResponse = await ai.models.generateContent({
+            // Timeout de 6 segundos para enriquecimento com IA
+            const aiPromise = ai.models.generateContent({
               model: ANALYST_MODEL,
               contents: blueprintPrompt,
               config: { responseMimeType: 'application/json' },
             });
+
+            const timeoutPromise = new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error('AI Blueprint synthesis timeout - using instant verified blueprint')), 6000)
+            );
+
+            const bpResponse: any = await Promise.race([aiPromise, timeoutPromise]);
             const bpText = bpResponse.text ?? bpResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
             const bpParsed = JSON.parse(bpText);
-            bpItems = (bpParsed.items || []) as FindingContent[];
-            globalData = bpParsed;
-          } catch (bpErr) {
-            console.warn('Síntese IA do blueprint via modelo primário falhou, acionando gerador determinístico cirúrgico:', bpErr);
-          }
+            const bpItems = (bpParsed.items || []) as FindingContent[];
 
-          // Garante 100% de preenchimento com código completo sem nenhum placeholder
-          const verifiedContents = ensureCompleteBlueprintItems(bpItems, combinedFindings, contextFiles);
+            if (bpItems.length > 0) {
+              const refinedContents = ensureCompleteBlueprintItems(bpItems, combinedFindings, contextFiles);
+              blueprintMd = renderSecurityBlueprint({
+                projectName: projectName || 'Projeto',
+                date: new Date().toISOString().split('T')[0],
+                findings: combinedFindings,
+                contents: refinedContents,
+                globalContent: {
+                  checklistObrigatorio: bpParsed?.checklistObrigatorio || [
+                    'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
+                    'Rodar suite completa de testes de segurança automatizados'
+                  ],
+                  checklistRecomendado: bpParsed?.checklistRecomendado || [
+                    'Habilitar scan de segredos e linters de segurança no CI/CD',
+                    'Revisar logs de auditoria e telemetria de segurança'
+                  ],
+                  referencias: bpParsed?.referencias || [
+                    { recurso: 'OWASP Top 10 Security Risks', url: 'https://owasp.org/www-project-top-ten/', descricao: 'Guia oficial de mitigação' }
+                  ]
+                }
+              });
 
-          blueprintMd = renderSecurityBlueprint({
-            projectName: projectName || 'Projeto',
-            date: new Date().toISOString().split('T')[0],
-            findings: combinedFindings,
-            contents: verifiedContents,
-            globalContent: {
-              checklistObrigatorio: globalData?.checklistObrigatorio || ['Aplicar correções críticas em todos os pontos apontados', 'Rodar suite completa de testes de segurança automatizados'],
-              checklistRecomendado: globalData?.checklistRecomendado || ['Habilitar scan de segredos e linters de segurança no CI/CD', 'Revisar logs de auditoria e monitoramento'],
-              referencias: globalData?.referencias || [{ recurso: 'OWASP Top 10 Security Risks', url: 'https://owasp.org/www-project-top-ten/', descricao: 'Guia de referência para segurança em aplicações web' }]
+              // Re-emite o Blueprint enriquecido pela IA
+              sendEvent('blueprint_result', { blueprintMarkdown: blueprintMd });
             }
-          });
+          } catch (bpErr: any) {
+            console.warn('Enriquecimento contextual IA concluído ou ignorado por performance; blueprint determinístico ativo:', bpErr?.message || bpErr);
+          }
         }
 
         sendEvent('blueprint_result', { blueprintMarkdown: blueprintMd });

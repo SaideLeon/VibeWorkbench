@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   ShieldAlert, 
   ShieldCheck, 
@@ -110,6 +110,7 @@ interface SecurityAuditPanelProps {
   createdPR?: CreatedPullRequestInfo | null;
   onRunAudit: (scope?: 'selected' | 'all' | 'single') => void;
   onDownloadBlueprint: () => void;
+  onCompileBlueprint?: () => Promise<string>;
   onDownloadPatch: () => void;
   onGeneratePatch?: () => Promise<string>;
   onCreatePullRequest?: () => void;
@@ -149,6 +150,7 @@ export const SecurityAuditPanel = ({
   createdPR = null,
   onRunAudit,
   onDownloadBlueprint,
+  onCompileBlueprint,
   onDownloadPatch,
   onGeneratePatch,
   onCreatePullRequest,
@@ -180,6 +182,36 @@ export const SecurityAuditPanel = ({
   const [isCopiedGitCommand, setIsCopiedGitCommand] = useState(false);
   const [localPatch, setLocalPatch] = useState<string | null>(patchContent || null);
   const [isLoadingLocalPatch, setIsLoadingLocalPatch] = useState(false);
+  const [isCompilingLocalBlueprint, setIsCompilingLocalBlueprint] = useState(false);
+
+  // Auto-compilação defensiva se a aba Blueprint for acessada sem conteúdo
+  useEffect(() => {
+    if (
+      activeTab === 'blueprint' &&
+      !blueprintMarkdown &&
+      !isAuditing &&
+      !isGeneratingBlueprint &&
+      !isCompilingLocalBlueprint &&
+      auditResult &&
+      onCompileBlueprint
+    ) {
+      setIsCompilingLocalBlueprint(true);
+      onCompileBlueprint().finally(() => {
+        setIsCompilingLocalBlueprint(false);
+      });
+    }
+  }, [activeTab, blueprintMarkdown, isAuditing, isGeneratingBlueprint, isCompilingLocalBlueprint, auditResult, onCompileBlueprint]);
+
+  const handleManualCompileBlueprint = async () => {
+    if (onCompileBlueprint) {
+      setIsCompilingLocalBlueprint(true);
+      try {
+        await onCompileBlueprint();
+      } finally {
+        setIsCompilingLocalBlueprint(false);
+      }
+    }
+  };
 
   const handleCopyFullBlueprint = async () => {
     if (!blueprintMarkdown) return;
@@ -868,10 +900,60 @@ export const SecurityAuditPanel = ({
                       {blueprintMarkdown}
                     </ReactMarkdown>
                   </div>
+                ) : (isGeneratingBlueprint || isAuditing || isCompilingLocalBlueprint) ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-3 text-center bg-black/20 rounded-xl border border-white/5 p-6">
+                    <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-gray-200">A compilar o Blueprint de resolução e testes...</p>
+                      <p className="text-xs text-gray-400">A estruturar o plano de remediação com código 100% completo e testes unitários.</p>
+                    </div>
+                    <div className="pt-2">
+                      <button
+                        onClick={() => setActiveTab('findings')}
+                        className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2 flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5" />
+                        Ver vulnerabilidades detectadas ({auditResult?.findings?.length || 0}) enquanto compila
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center py-10 gap-3 text-center">
-                    <Loader2 className="w-7 h-7 animate-spin text-indigo-400" />
-                    <p className="text-xs text-gray-400">A compilar o Blueprint de resolução...</p>
+                  <div className="flex flex-col items-center justify-center py-10 px-4 text-center bg-black/20 rounded-xl border border-white/5 space-y-4">
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div className="max-w-md space-y-1">
+                      <h4 className="text-sm font-medium text-gray-200">Blueprint de Remediação Disponível</h4>
+                      <p className="text-xs text-gray-400">
+                        A auditoria detectou {auditResult?.findings?.length || 0} vulnerabilidade(s). Gere o guia completo com código pronto para copiar e testes de regressão.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleManualCompileBlueprint}
+                        disabled={isCompilingLocalBlueprint}
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold flex items-center gap-2 shadow-lg shadow-indigo-600/20 transition-all cursor-pointer"
+                      >
+                        {isCompilingLocalBlueprint ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            A compilar...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="w-3.5 h-3.5" />
+                            Compilar Blueprint Imediatamente
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('findings')}
+                        className="px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-lg text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                        Ver Vulnerabilidades ({auditResult?.findings?.length || 0})
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
