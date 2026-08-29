@@ -337,7 +337,7 @@ export const FileTree = ({
         <div className="pt-2 border-t border-white/10 mt-2">
           <button
             onClick={onRunAuditWithSelection}
-            className="w-full text-xs bg-red-600/20 hover:bg-red-600/30 text-red-300 border border-red-500/30 rounded-lg py-1.5 px-3 flex items-center justify-center gap-2 font-medium transition-colors shadow-sm"
+            className="w-full text-xs bg-red-600/20 hover:bg-red-600/35 active:bg-red-600/50 text-red-300 hover:text-white border border-red-500/30 hover:border-red-500/60 rounded-lg py-2 px-3 flex items-center justify-center gap-2 font-medium transition-all duration-150 shadow-sm hover:shadow-md hover:shadow-red-500/20 hover:scale-[1.01] active:scale-[0.98] cursor-pointer"
           >
             <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
             <span>Auditar Selecionados ({selectedCount})</span>

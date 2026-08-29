@@ -4,6 +4,7 @@ import { jsonError, AppError } from '@/app/api/_utils';
 import { getRuleById } from '@/server/security/ruleset';
 import { ScoredFinding } from '@/server/security/scoring';
 import { renderSecurityBlueprint, FindingContent, GlobalBlueprintContent } from '@/server/security/blueprint-template';
+import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
 
 export const runtime = 'nodejs';
 
@@ -210,14 +211,20 @@ ${f.evidence || '(ver ficheiro indicado)'}`;
     try {
       parsed = JSON.parse(rawText);
     } catch {
-      throw new AppError('A IA devolveu conteúdo em formato inválido', 502, { rawText });
+      parsed = { items: [] };
     }
+
+    const verifiedContents = ensureCompleteBlueprintItems(
+      parsed.items || [],
+      findings as ScoredFinding[],
+      contextFiles
+    );
 
     const md = renderSecurityBlueprint({
       projectName: projectName || 'Projecto',
       date: new Date().toISOString().split('T')[0],
       findings: findings as ScoredFinding[],
-      contents: parsed.items || [],
+      contents: verifiedContents,
       globalContent: {
         checklistObrigatorio: parsed.checklistObrigatorio,
         checklistRecomendado: parsed.checklistRecomendado,

@@ -100,7 +100,7 @@ export const HeroSection = ({
               <button
                 type="submit"
                 disabled={isLoading || !repoInput.trim()}
-                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-all shadow-lg flex items-center justify-center gap-2 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 active:from-indigo-700 active:to-purple-700 text-white px-6 py-3 rounded-lg font-semibold text-sm transition-all duration-150 shadow-lg hover:shadow-indigo-500/25 hover:scale-[1.02] active:scale-[0.97] flex items-center justify-center gap-2 shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 cursor-pointer"
               >
                 {isLoading ? (
                   <>

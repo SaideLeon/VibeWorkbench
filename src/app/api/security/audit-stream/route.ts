@@ -4,6 +4,7 @@ import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/secur
 import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
 import { scanFilesForSecrets } from '@/server/security/secrets-scanner';
 import { renderSecurityBlueprint, FindingContent } from '@/server/security/blueprint-template';
+import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
 import { AgentTrace } from '@/types';
 
 export const runtime = 'nodejs';
@@ -235,13 +236,21 @@ export async function POST(req: NextRequest) {
             contents: [],
           });
         } else {
-          // Solicita blueprint completo da IA
+          // Solicita blueprint completo da IA com contexto de código completo
           const blueprintPrompt = `
-            Você é um Arquiteto de Segurança de Software Principal.
+            Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
             Gere o conteúdo detalhado de resolução para cada vulnerabilidade identificada.
-            Para cada item, forneça código 100% completo pronto para colar, diagrama ASCII e teste automatizado.
 
-            VULNERABILIDADES:
+            DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
+            - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, melhorado, pronto para substituir o ficheiro anterior na íntegra.
+            - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código", "// adicione lógica").
+            - O usuário deve poder apenas copiar o código e colar diretamente no projeto, sem ter que pensar ou programar nada.
+            - Em "teste", forneça o código de teste unitário/segurança completo com describe/it executável.
+
+            CÓDIGO-FONTE DOS ARQUIVOS AUDITADOS:
+            ${fileContext}
+
+            VULNERABILIDADES IDENTIFICADAS:
             ${combinedFindings.map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
 
             Responda em JSON rigoroso com a estrutura:
@@ -249,32 +258,39 @@ export async function POST(req: NextRequest) {
               "items": [
                 {
                   "index": 0,
-                  "titulo": "Título conciso",
-                  "codigoActual": "código vulnerável existente",
+                  "titulo": "Título conciso da vulnerabilidade e resolução",
+                  "codigoActual": "código vulnerável existente extraído do arquivo",
                   "codigoActualLinguagem": "typescript",
-                  "porQueExploravel": "Explicação da falha",
+                  "porQueExploravel": "Explicação detalhada da falha e como pode ser explorada",
                   "impacto": ["Impacto 1", "Impacto 2"],
-                  "diagrama": "ASCII diagram",
+                  "diagrama": "ASCII diagram comparando ANTES vs DEPOIS",
                   "passos": [
                     {
-                      "titulo": "Passo 1",
+                      "titulo": "Substituir arquivo com versão protegida",
                       "linguagem": "typescript",
-                      "codigo": "Código 100% completo sem omissões"
+                      "comentario": "Substitua o arquivo integralmente por esta versão corrigida:",
+                      "codigo": "Código 100% completo pronto para copiar e colar"
                     }
                   ],
                   "teste": {
-                    "caminhoFicheiro": "src/__tests__/security.test.ts",
-                    "comando": "npx vitest run",
+                    "caminhoFicheiro": "src/__tests__/security/test.test.ts",
+                    "comando": "npx vitest run src/__tests__/security/test.test.ts",
                     "linguagem": "typescript",
-                    "codigo": "describe('test', () => { ... })",
-                    "resultadoEsperado": "Bloqueia payload"
+                    "codigo": "describe('...', () => { it('...', () => { ... }) })",
+                    "resultadoEsperado": "O teste valida o bloqueio do ataque e a aceitação de requisições legítimas"
                   },
                   "checklist": ["Item 1", "Item 2"],
                   "esforco": "Baixo (< 30min)"
                 }
-              ]
+              ],
+              "checklistObrigatorio": ["Aplicar correções críticas", "Rodar suite de testes de segurança"],
+              "checklistRecomendado": ["Ativar monitoramento e logs de auditoria"],
+              "referencias": [{ "recurso": "OWASP Top 10", "descricao": "Guia oficial de mitigação" }]
             }
           `;
+
+          let bpItems: FindingContent[] = [];
+          let globalData: any = {};
 
           try {
             const bpResponse = await ai.models.generateContent({
@@ -284,46 +300,26 @@ export async function POST(req: NextRequest) {
             });
             const bpText = bpResponse.text ?? bpResponse.candidates?.[0]?.content?.parts?.[0]?.text ?? '{}';
             const bpParsed = JSON.parse(bpText);
-            
-            blueprintMd = renderSecurityBlueprint({
-              projectName: projectName || 'Projeto',
-              date: new Date().toISOString().split('T')[0],
-              findings: combinedFindings,
-              contents: (bpParsed.items || []) as FindingContent[],
-              globalContent: {
-                checklistObrigatorio: bpParsed.checklistObrigatorio || ['Aplicar correções críticas', 'Rodar suite de testes'],
-                checklistRecomendado: bpParsed.checklistRecomendado || ['Habilitar scan de segredos no CI/CD'],
-                referencias: bpParsed.referencias || [{ recurso: 'OWASP Top 10', descricao: 'Guia oficial de segurança' }]
-              }
-            });
+            bpItems = (bpParsed.items || []) as FindingContent[];
+            globalData = bpParsed;
           } catch (bpErr) {
-            console.error('Erro na síntese IA do blueprint:', bpErr);
-            // Fallback determinístico seguro para nunca retornar HTML cru
-            blueprintMd = renderSecurityBlueprint({
-              projectName: projectName || 'Projeto',
-              date: new Date().toISOString().split('T')[0],
-              findings: combinedFindings,
-              contents: combinedFindings.map((f, idx) => ({
-                index: idx,
-                titulo: `Remediação de ${f.rule} em ${f.location}`,
-                porQueExploravel: f.description,
-                impacto: [`Risco de segurança associado à regra ${f.rule}`],
-                passos: [{
-                  titulo: `Corrigir código em ${f.location}`,
-                  linguagem: 'typescript',
-                  codigo: `// Remediação recomendada para ${f.rule}\n// Isole segredos e sanitize inputs em ${f.location}`
-                }],
-                teste: {
-                  linguagem: 'typescript',
-                  comando: 'npm test',
-                  codigo: `// Teste automatizado para ${f.rule}`,
-                  resultadoEsperado: 'Passa sem vulnerabilidade'
-                },
-                checklist: [`Verificado em ${f.location}`],
-                esforco: f.severity === 'CRITICO' ? 'Médio (2h)' : 'Baixo (1h)'
-              }))
-            });
+            console.warn('Síntese IA do blueprint via modelo primário falhou, acionando fallback ou enriquecedor:', bpErr);
           }
+
+          // Garante 100% de preenchimento com código completo sem nenhum placeholder
+          const verifiedContents = ensureCompleteBlueprintItems(bpItems, combinedFindings, contextFiles);
+
+          blueprintMd = renderSecurityBlueprint({
+            projectName: projectName || 'Projeto',
+            date: new Date().toISOString().split('T')[0],
+            findings: combinedFindings,
+            contents: verifiedContents,
+            globalContent: {
+              checklistObrigatorio: globalData?.checklistObrigatorio || ['Aplicar correções críticas em todos os pontos apontados', 'Rodar suite completa de testes de segurança automatizados'],
+              checklistRecomendado: globalData?.checklistRecomendado || ['Habilitar scan de segredos e linters de segurança no CI/CD', 'Revisar logs de auditoria e monitoramento'],
+              referencias: globalData?.referencias || [{ recurso: 'OWASP Top 10 Security Risks', url: 'https://owasp.org/www-project-top-ten/', descricao: 'Guia de referência para segurança em aplicações web' }]
+            }
+          });
         }
 
         sendEvent('blueprint_result', { blueprintMarkdown: blueprintMd });

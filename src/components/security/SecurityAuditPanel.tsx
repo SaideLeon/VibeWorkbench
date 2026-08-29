@@ -395,9 +395,9 @@ export const SecurityAuditPanel = ({
                 onClick={() => onRunAudit('selected')}
                 disabled={isAuditing || selectedCount === 0}
                 className={cn(
-                  "p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all cursor-pointer",
+                  "p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-150 cursor-pointer",
                   selectedCount > 0 
-                    ? "bg-indigo-600/15 border-indigo-500/40 hover:bg-indigo-600/25 text-indigo-200" 
+                    ? "bg-indigo-600/15 border-indigo-500/40 hover:bg-indigo-600/30 active:bg-indigo-600/45 hover:border-indigo-400 text-indigo-200 hover:text-white hover:scale-[1.015] active:scale-[0.98] hover:shadow-md hover:shadow-indigo-500/15" 
                     : "bg-white/5 border-white/5 opacity-50 cursor-not-allowed text-gray-500"
                 )}
               >
@@ -414,7 +414,7 @@ export const SecurityAuditPanel = ({
               <button
                 onClick={() => onRunAudit('all')}
                 disabled={isAuditing || totalCodeCount === 0}
-                className="p-2.5 rounded-lg border bg-white/5 border-white/10 hover:border-indigo-500/40 hover:bg-white/10 text-gray-200 text-left flex flex-col justify-between transition-all cursor-pointer"
+                className="p-2.5 rounded-lg border bg-white/5 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 active:bg-white/15 hover:scale-[1.015] active:scale-[0.98] text-gray-200 hover:text-white text-left flex flex-col justify-between transition-all duration-150 hover:shadow-md cursor-pointer"
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-semibold">Todo o Projeto</span>
@@ -430,9 +430,9 @@ export const SecurityAuditPanel = ({
                 onClick={() => onRunAudit('single')}
                 disabled={isAuditing || !currentFileName}
                 className={cn(
-                  "p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all",
+                  "p-2.5 rounded-lg border text-left flex flex-col justify-between transition-all duration-150",
                   currentFileName 
-                    ? "bg-white/5 border-white/10 hover:border-indigo-500/40 hover:bg-white/10 text-gray-200 cursor-pointer" 
+                    ? "bg-white/5 border-white/10 hover:border-indigo-500/50 hover:bg-white/10 active:bg-white/15 hover:scale-[1.015] active:scale-[0.98] text-gray-200 hover:text-white cursor-pointer hover:shadow-md" 
                     : "bg-white/5 border-white/5 opacity-50 cursor-not-allowed text-gray-500"
                 )}
               >

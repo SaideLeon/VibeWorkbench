@@ -217,7 +217,7 @@ export const RepoInput = ({ onAnalyze, isLoading }: { onAnalyze: (url: string) =
               <button
                 type="submit"
                 disabled={isLoading || !url}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-lg font-semibold text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 shrink-0 cursor-pointer"
+                className="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white px-4 md:px-6 py-2 md:py-2.5 rounded-lg font-semibold text-sm transition-all duration-150 hover:scale-[1.02] active:scale-[0.97] hover:shadow-lg hover:shadow-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center gap-2 shrink-0 cursor-pointer"
               >
                 {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 <span>Analisar</span>

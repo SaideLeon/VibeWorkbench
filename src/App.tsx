@@ -399,7 +399,7 @@ export default function App() {
                           }
                         }}
                         disabled={isAuditing}
-                        className="w-full text-[11px] bg-red-600/15 hover:bg-red-600/25 text-red-300 border border-red-500/30 rounded-lg px-2 py-2 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer font-medium"
+                        className="w-full text-[11px] bg-red-600/15 hover:bg-red-600/25 active:bg-red-600/40 text-red-300 hover:text-white border border-red-500/30 hover:border-red-500/60 rounded-lg px-2 py-2 flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-md hover:shadow-red-500/15 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-medium"
                       >
                         {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5 text-red-400" />}
                         <span>Auditoria & Blueprint ({selectedPaths.size > 0 ? `${selectedPaths.size} sel.` : 'Tudo'})</span>
@@ -407,7 +407,7 @@ export default function App() {
 
                       <button
                         onClick={() => setIsCommitHistoryOpen(true)}
-                        className="w-full text-[11px] bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 rounded-lg px-2 py-1.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-medium"
+                        className="w-full text-[11px] bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/25 hover:border-amber-500/50 rounded-lg px-2 py-1.5 flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] cursor-pointer font-medium"
                         title="Ver histórico de commits e reverter versões anteriores"
                       >
                         <History className="w-3.5 h-3.5 text-amber-400" />
@@ -476,7 +476,7 @@ export default function App() {
                                   handleRunSecurityAudit(selectedPaths.size > 0 ? 'selected' : 'all');
                                 }}
                                 disabled={isAuditing}
-                                className="w-full text-xs bg-red-600/15 hover:bg-red-600/25 text-red-300 border border-red-500/30 rounded-lg px-2 py-2 flex items-center justify-center gap-1.5 transition-colors disabled:opacity-50 cursor-pointer font-medium"
+                                className="w-full text-xs bg-red-600/15 hover:bg-red-600/25 active:bg-red-600/40 text-red-300 hover:text-white border border-red-500/30 hover:border-red-500/60 rounded-lg px-2 py-2 flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] hover:shadow-md hover:shadow-red-500/15 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer font-medium"
                               >
                                 {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldAlert className="w-3.5 h-3.5 text-red-400" />}
                                 <span>Auditoria & Blueprint ({selectedPaths.size > 0 ? `${selectedPaths.size} sel.` : 'Tudo'})</span>
@@ -487,7 +487,7 @@ export default function App() {
                                   setIsSidebarOpen(false);
                                   setIsCommitHistoryOpen(true);
                                 }}
-                                className="w-full text-xs bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/25 rounded-lg px-2 py-1.5 flex items-center justify-center gap-1.5 transition-colors cursor-pointer font-medium"
+                                className="w-full text-xs bg-amber-500/10 hover:bg-amber-500/20 active:bg-amber-500/30 text-amber-300 hover:text-amber-200 border border-amber-500/25 hover:border-amber-500/50 rounded-lg px-2 py-1.5 flex items-center justify-center gap-1.5 transition-all duration-150 hover:scale-[1.01] active:scale-[0.98] cursor-pointer font-medium"
                               >
                                 <History className="w-3.5 h-3.5 text-amber-400" />
                                 <span>Histórico & Rollback</span>
