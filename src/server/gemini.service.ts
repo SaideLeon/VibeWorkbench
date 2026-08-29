@@ -14,4 +14,5 @@ export function getAIClient(apiKey?: string) {
 }
 
 export const ANALYST_MODEL = 'gemini-3.1-pro-preview';
-export const FALLBACK_MODEL = 'gemini-3-flash-preview';
+export const FALLBACK_MODEL = 'gemini-3.7-flash';
+export const FAST_MODEL = 'gemini-3.7-flash';

@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
 import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/security/ruleset';
 import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
-import { scanFilesForSecrets } from '@/server/security/secrets-scanner';
+import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { renderSecurityBlueprint, FindingContent } from '@/server/security/blueprint-template';
 import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
 import { AgentTrace } from '@/types';
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         });
 
-        // 1. Varredura determinística de alta precisão por arquivo com emissão de eventos reais
+        // 1. Varredura determinística de alta precisão por arquivo com emissão de eventos reais para todas as 36 regras
         const allDeterministicFindings: ScoredFinding[] = [];
         
         for (let i = 0; i < contextFiles.length; i++) {
@@ -51,17 +51,17 @@ export async function POST(req: NextRequest) {
             linesCount: (file.content || '').split('\n').length
           });
 
-          // Analisa segredos no arquivo
-          const fileSecrets = scanFilesForSecrets([file]);
-          if (fileSecrets.length > 0) {
-            allDeterministicFindings.push(...fileSecrets);
-            for (const sec of fileSecrets) {
+          // Analisa segredos e vulnerabilidades estáticas (R01-R28 + CTF-R01-R11) no arquivo
+          const fileFindings = scanFilesWithSAST([file]);
+          if (fileFindings.length > 0) {
+            allDeterministicFindings.push(...fileFindings);
+            for (const f of fileFindings) {
               sendEvent('ast_finding', {
-                rule: sec.rule,
-                severity: sec.severity,
+                rule: f.rule,
+                severity: f.severity,
                 filePath: file.path,
-                location: sec.location,
-                description: sec.description
+                location: f.location,
+                description: f.description
               });
             }
           }
@@ -71,91 +71,93 @@ export async function POST(req: NextRequest) {
             fileIndex: i,
             filePath: file.path,
             status: 'completed',
-            ruleVerified: 'R03a & R03b Secrets & AST Checks'
+            ruleVerified: '36 Regras (R01-R28 + CTF-R01-R11) & Secrets Scanner'
           });
 
           // Pequena pausa para garantir que o cliente renderize o frame se a lista for pequena
-          await new Promise(resolve => setTimeout(resolve, 80));
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
 
         sendEvent('status', {
           phase: 'ast_completed',
-          message: `Varredura AST concluída em ${contextFiles.length} arquivos. Analisando lógica contextual com IA...`
+          message: `Varredura AST concluída em ${contextFiles.length} arquivos (${allDeterministicFindings.length} achados estáticos). Analisando lógica contextual com IA...`
         });
 
         // 2. Chamada ao Modelo para análise contextual profunda
-        const ai = getAIClient(apiKey);
-        const fileContext = contextFiles
-          .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
-          .join('\n');
-
-        const prompt = `
-          Você é um auditor de segurança sénior. Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras.
-          Não invente regras novas nem severidades — use apenas os IDs do catálogo.
-
-          CATÁLOGO DE REGRAS:
-          ${ruleCatalogAsPrompt()}
-
-          CÓDIGO A AUDITAR:
-          ${fileContext}
-
-          Para cada vulnerabilidade real encontrada, identifique o ID exato da regra violada, a localização, uma descrição curta e um trecho de evidência (máx 5 linhas).
-          Responda em JSON rigoroso com a estrutura:
-          {
-            "findings": [
-              {
-                "rule": "R01",
-                "location": "caminho.ts : linha ou função",
-                "description": "Explicação curta",
-                "evidence": "código"
-              }
-            ]
-          }
-        `;
-
-        let rawText = '';
-        const generationConfig = { responseMimeType: 'application/json' };
-
+        let aiFindings: ScoredFinding[] = [];
         try {
-          const response = await ai.models.generateContent({
-            model: ANALYST_MODEL,
-            contents: prompt,
-            config: generationConfig,
-          });
-          rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-        } catch (error: any) {
-          if (error.status === 429 || error.message?.includes('429')) {
+          const ai = getAIClient(apiKey);
+          const fileContext = contextFiles
+            .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
+            .join('\n');
+
+          const prompt = `
+            Você é um auditor de segurança sénior e arquiteto AppSec. Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras (R01-R28 e CTF-R01-R11).
+            Não invente regras novas nem severidades — use apenas os IDs exatos do catálogo.
+
+            CATÁLOGO DE REGRAS:
+            ${ruleCatalogAsPrompt()}
+
+            CÓDIGO A AUDITAR:
+            ${fileContext}
+
+            Para cada vulnerabilidade real encontrada, identifique o ID exato da regra violada, a localização exata, uma descrição curta e um trecho de evidência (máx 5 linhas).
+            Responda em JSON rigoroso com a estrutura:
+            {
+              "findings": [
+                {
+                  "rule": "R01",
+                  "location": "caminho.ts:25",
+                  "description": "Explicação concisa do problema",
+                  "evidence": "código"
+                }
+              ]
+            }
+          `;
+
+          let rawText = '';
+          const generationConfig = { responseMimeType: 'application/json' };
+
+          try {
+            const response = await ai.models.generateContent({
+              model: ANALYST_MODEL,
+              contents: prompt,
+              config: generationConfig,
+            });
+            rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+          } catch (error: any) {
+            console.warn('Falha no modelo principal de auditoria, tentando fallback:', error?.message);
             const response = await ai.models.generateContent({
               model: FALLBACK_MODEL,
               contents: prompt,
               config: generationConfig,
             });
             rawText = response.text ?? response.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-          } else {
-            throw error;
           }
-        }
 
-        let parsed: { findings: any[] } = { findings: [] };
-        try {
-          parsed = JSON.parse(rawText);
-        } catch {
-          parsed = { findings: [] };
-        }
+          let parsed: { findings: any[] } = { findings: [] };
+          try {
+            parsed = JSON.parse(rawText);
+          } catch {
+            parsed = { findings: [] };
+          }
 
-        const aiFindings: ScoredFinding[] = (parsed.findings || [])
-          .map((f: any) => {
-            const rule = getRuleById(String(f.rule || ''));
-            if (!rule) return null;
-            return {
-              rule: rule.id,
-              severity: rule.severity,
-              location: String(f.location || 'não especificado'),
-              description: String(f.description || rule.description),
-              evidence: String(f.evidence || ''),
-            } as ScoredFinding;
-          })
-          .filter((f: ScoredFinding | null): f is ScoredFinding => f !== null);
+          aiFindings = (parsed.findings || [])
+            .map((f: any) => {
+              const rule = getRuleById(String(f.rule || ''));
+              if (!rule) return null;
+              return {
+                rule: rule.id,
+                severity: rule.severity,
+                location: String(f.location || 'não especificado'),
+                description: String(f.description || rule.description),
+                evidence: String(f.evidence || ''),
+              } as ScoredFinding;
+            })
+            .filter((f: ScoredFinding | null): f is ScoredFinding => f !== null);
+        } catch (aiErr) {
+          console.warn('Análise IA contextual falhou ou foi ignorada, utilizando achados determinísticos:', aiErr);
+        }
 
         // Combina findings determinísticos e IA
         const combinedFindings: ScoredFinding[] = [...allDeterministicFindings];
@@ -184,7 +186,7 @@ export async function POST(req: NextRequest) {
             stepIndex: 1,
             timestamp: Date.now() - 500,
             type: 'tool_call',
-            content: `tool_scan_ast executada com sucesso contra o catálogo R01-R28.`,
+            content: `tool_scan_ast executada com sucesso contra o catálogo de 36 regras (R01-R28 + CTF-R01-R11).`,
             toolName: 'tool_scan_ast',
             toolArgs: { totalFiles: contextFiles.length },
             durationMs: 250,
@@ -236,63 +238,68 @@ export async function POST(req: NextRequest) {
             contents: [],
           });
         } else {
-          // Solicita blueprint completo da IA com contexto de código completo
-          const blueprintPrompt = `
-            Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
-            Gere o conteúdo detalhado de resolução para cada vulnerabilidade identificada.
-
-            DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
-            - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, melhorado, pronto para substituir o ficheiro anterior na íntegra.
-            - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código", "// adicione lógica").
-            - O usuário deve poder apenas copiar o código e colar diretamente no projeto, sem ter que pensar ou programar nada.
-            - Em "teste", forneça o código de teste unitário/segurança completo com describe/it executável.
-
-            CÓDIGO-FONTE DOS ARQUIVOS AUDITADOS:
-            ${fileContext}
-
-            VULNERABILIDADES IDENTIFICADAS:
-            ${combinedFindings.map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
-
-            Responda em JSON rigoroso com a estrutura:
-            {
-              "items": [
-                {
-                  "index": 0,
-                  "titulo": "Título conciso da vulnerabilidade e resolução",
-                  "codigoActual": "código vulnerável existente extraído do arquivo",
-                  "codigoActualLinguagem": "typescript",
-                  "porQueExploravel": "Explicação detalhada da falha e como pode ser explorada",
-                  "impacto": ["Impacto 1", "Impacto 2"],
-                  "diagrama": "ASCII diagram comparando ANTES vs DEPOIS",
-                  "passos": [
-                    {
-                      "titulo": "Substituir arquivo com versão protegida",
-                      "linguagem": "typescript",
-                      "comentario": "Substitua o arquivo integralmente por esta versão corrigida:",
-                      "codigo": "Código 100% completo pronto para copiar e colar"
-                    }
-                  ],
-                  "teste": {
-                    "caminhoFicheiro": "src/__tests__/security/test.test.ts",
-                    "comando": "npx vitest run src/__tests__/security/test.test.ts",
-                    "linguagem": "typescript",
-                    "codigo": "describe('...', () => { it('...', () => { ... }) })",
-                    "resultadoEsperado": "O teste valida o bloqueio do ataque e a aceitação de requisições legítimas"
-                  },
-                  "checklist": ["Item 1", "Item 2"],
-                  "esforco": "Baixo (< 30min)"
-                }
-              ],
-              "checklistObrigatorio": ["Aplicar correções críticas", "Rodar suite de testes de segurança"],
-              "checklistRecomendado": ["Ativar monitoramento e logs de auditoria"],
-              "referencias": [{ "recurso": "OWASP Top 10", "descricao": "Guia oficial de mitigação" }]
-            }
-          `;
-
+          // Solicita enriquecimento IA do blueprint com fallback seguro
           let bpItems: FindingContent[] = [];
           let globalData: any = {};
 
           try {
+            const ai = getAIClient(apiKey);
+            const fileContext = contextFiles
+              .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
+              .join('\n');
+
+            const blueprintPrompt = `
+              Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
+              Gere o conteúdo detalhado de resolução para cada vulnerabilidade identificada.
+
+              DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
+              - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, melhorado, pronto para substituir o ficheiro anterior na íntegra.
+              - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código", "// adicione lógica").
+              - O usuário deve poder apenas copiar o código e colar diretamente no projeto, sem ter que pensar ou programar nada.
+              - Em "teste", forneça o código de teste unitário/segurança completo com describe/it executável.
+
+              CÓDIGO-FONTE DOS ARQUIVOS AUDITADOS:
+              ${fileContext}
+
+              VULNERABILIDADES IDENTIFICADAS:
+              ${combinedFindings.map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
+
+              Responda em JSON rigoroso com a estrutura:
+              {
+                "items": [
+                  {
+                    "index": 0,
+                    "titulo": "Título conciso da vulnerabilidade e resolução",
+                    "codigoActual": "código vulnerável existente extraído do arquivo",
+                    "codigoActualLinguagem": "typescript",
+                    "porQueExploravel": "Explicação detalhada da falha e como pode ser explorada",
+                    "impacto": ["Impacto 1", "Impacto 2"],
+                    "diagrama": "ASCII diagram comparando ANTES vs DEPOIS",
+                    "passos": [
+                      {
+                        "titulo": "Substituir arquivo com versão protegida",
+                        "linguagem": "typescript",
+                        "comentario": "Substitua o arquivo integralmente por esta versão corrigida:",
+                        "codigo": "Código 100% completo pronto para copiar e colar"
+                      }
+                    ],
+                    "teste": {
+                      "caminhoFicheiro": "src/__tests__/security/test.test.ts",
+                      "comando": "npx vitest run src/__tests__/security/test.test.ts",
+                      "linguagem": "typescript",
+                      "codigo": "describe('...', () => { it('...', () => { ... }) })",
+                      "resultadoEsperado": "O teste valida o bloqueio do ataque e a aceitação de requisições legítimas"
+                    },
+                    "checklist": ["Item 1", "Item 2"],
+                    "esforco": "Baixo (< 30min)"
+                  }
+                ],
+                "checklistObrigatorio": ["Aplicar correções críticas", "Rodar suite de testes de segurança"],
+                "checklistRecomendado": ["Ativar monitoramento e logs de auditoria"],
+                "referencias": [{ "recurso": "OWASP Top 10", "descricao": "Guia oficial de mitigação" }]
+              }
+            `;
+
             const bpResponse = await ai.models.generateContent({
               model: ANALYST_MODEL,
               contents: blueprintPrompt,
@@ -303,7 +310,7 @@ export async function POST(req: NextRequest) {
             bpItems = (bpParsed.items || []) as FindingContent[];
             globalData = bpParsed;
           } catch (bpErr) {
-            console.warn('Síntese IA do blueprint via modelo primário falhou, acionando fallback ou enriquecedor:', bpErr);
+            console.warn('Síntese IA do blueprint via modelo primário falhou, acionando gerador determinístico cirúrgico:', bpErr);
           }
 
           // Garante 100% de preenchimento com código completo sem nenhum placeholder

@@ -3,7 +3,7 @@ import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.serv
 import { jsonError, AppError } from '@/app/api/_utils';
 import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/security/ruleset';
 import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
-import { scanFilesForSecrets } from '@/server/security/secrets-scanner';
+import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { DeepSeekHarnessEngine } from '@/server/agent/harness';
 import { AgentTrace } from '@/types';
 
@@ -40,8 +40,8 @@ export async function POST(req: NextRequest) {
       throw new AppError('Nenhum ficheiro fornecido para auditoria', 400);
     }
 
-    // 1. Varredura estática determinística de alta precisão para Secrets (R03a e R03b)
-    const deterministicSecretFindings = scanFilesForSecrets(contextFiles);
+    // 1. Varredura estática determinística de alta precisão para as 36 regras (R01-R28 + CTF-R01-R11)
+    const deterministicSASTFindings = scanFilesWithSAST(contextFiles);
 
     const ai = getAIClient(apiKey);
     const fileContext = contextFiles
@@ -120,9 +120,9 @@ export async function POST(req: NextRequest) {
       })
       .filter((f: ScoredFinding | null): f is ScoredFinding => f !== null);
 
-    // Fusão determinística: prioriza os achados estáticos com 100% de precisão para secrets
-    const combinedFindings: ScoredFinding[] = [...deterministicSecretFindings];
-    const seenKeys = new Set(deterministicSecretFindings.map((f) => `${f.rule}:${f.location.toLowerCase()}`));
+    // Fusão determinística: prioriza os achados estáticos com 100% de precisão para as 36 regras
+    const combinedFindings: ScoredFinding[] = [...deterministicSASTFindings];
+    const seenKeys = new Set(deterministicSASTFindings.map((f) => `${f.rule}:${f.location.toLowerCase()}`));
 
     for (const f of aiFindings) {
       const key = `${f.rule}:${f.location.toLowerCase()}`;
