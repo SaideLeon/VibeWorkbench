@@ -55,8 +55,9 @@ export function renderSecurityBlueprint(params: {
   findings: ScoredFinding[];
   contents: FindingContent[];
   globalContent?: GlobalBlueprintContent;
+  existingTestPaths?: string[];
 }): string {
-  const { projectName, date, findings, contents, globalContent } = params;
+  const { projectName, date, findings, contents, globalContent, existingTestPaths } = params;
   const scoreResult = computeScore(findings);
 
   // Emparelha cada finding com o seu conteúdo pela posição ORIGINAL antes de reordenar
@@ -185,12 +186,16 @@ ${checklistMd}
 
   // Checklist global pré-deploy
   const criticalAndHighRules = ordered.filter((f) => f.severity === 'CRITICO' || f.severity === 'ALTO');
+  const testSuiteText = existingTestPaths && existingTestPaths.length > 0
+    ? `Integrar testes de regressão de segurança à suíte de testes existente do projeto (${existingTestPaths.length} arquivos de teste já presentes)`
+    : 'Suite completa de testes de segurança a passar';
+
   const mandatoryItems =
     globalContent?.checklistObrigatorio ||
     (criticalAndHighRules.length > 0
       ? criticalAndHighRules.map((f) => `**[${f.rule}]** Correcção aplicada e validada em \`${f.location}\``)
       : ['Todos os pontos críticos auditados e verificados'])
-        .concat(['Suite completa de testes de segurança a passar', 'Variáveis de ambiente e secrets verificados fora do repositório']);
+        .concat([testSuiteText, 'Variáveis de ambiente e secrets verificados fora do repositório']);
 
   const recommendedItems =
     globalContent?.checklistRecomendado || [
@@ -212,11 +217,16 @@ ${checklistMd}
 
   const classificationStatus = CLASSIFICATION_MD_LABEL[scoreResult.classification] || scoreResult.classificationLabel;
 
+  const testSuiteHeader = existingTestPaths && existingTestPaths.length > 0
+    ? `**Suíte de Testes Existente:** Detectados ${existingTestPaths.length} arquivo(s) de testes automatizados no repositório (\`${existingTestPaths.slice(0, 3).join('`, `')}\`${existingTestPaths.length > 3 ? ` e mais ${existingTestPaths.length - 3}` : ''}). Os testes de remediação deste blueprint devem ser integrados à sua suíte existente.\n`
+    : '';
+
   return `# 🔐 Blueprint de Correcção de Segurança
 
 **Projecto:** ${projectName}  
 **Data da auditoria:** ${date}  
-**Auditado por:** Mitigar IA Security Audit Skill v1.0
+**Auditado por:** Mitigar IA Security Audit Skill v1.0  
+${testSuiteHeader}
 
 ---
 

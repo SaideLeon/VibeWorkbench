@@ -5,6 +5,7 @@ import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/se
 import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { renderSecurityBlueprint, FindingContent } from '@/server/security/blueprint-template';
 import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
+import { isAutomatedTestFile } from '@/utils/file-selection';
 import { AgentTrace } from '@/types';
 
 export const runtime = 'nodejs';
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
       try {
         const body = await req.json();
-        const { contextFiles, apiKey, projectName, useHarness } = body;
+        const { contextFiles, apiKey, projectName, useHarness, existingTestPaths: inputTestPaths } = body;
 
         if (!Array.isArray(contextFiles) || contextFiles.length === 0) {
           sendEvent('error', { message: 'Nenhum ficheiro fornecido para auditoria' });
@@ -30,24 +31,41 @@ export async function POST(req: NextRequest) {
           return;
         }
 
+        // Filtra estritamente os arquivos de teste:
+        // - Não sobe conteúdo de testes para economizar tokens e evitar falsos positivos
+        // - Extrai caminhos para informar ao modelo que o repositório já possui testes
+        const detectedFromContext = contextFiles.filter(f => isAutomatedTestFile(f.path)).map(f => f.path);
+        const existingTestPaths: string[] = Array.from(new Set([
+          ...(Array.isArray(inputTestPaths) ? inputTestPaths : []),
+          ...detectedFromContext
+        ]));
+
+        const auditedFiles = contextFiles.filter(f => !isAutomatedTestFile(f.path));
+
+        if (auditedFiles.length === 0 && contextFiles.length > 0) {
+          // Se todos os arquivos selecionados eram testes, usamos a lista original mas alertamos
+          auditedFiles.push(...contextFiles);
+        }
+
         sendEvent('start', {
-          totalFiles: contextFiles.length,
+          totalFiles: auditedFiles.length,
           projectName: projectName || 'Projeto',
+          detectedAutomatedTests: existingTestPaths.length,
           timestamp: Date.now()
         });
 
         // 1. Varredura determinística de alta precisão por arquivo com emissão de eventos reais para todas as 36 regras
         const allDeterministicFindings: ScoredFinding[] = [];
         
-        for (let i = 0; i < contextFiles.length; i++) {
-          const file = contextFiles[i];
+        for (let i = 0; i < auditedFiles.length; i++) {
+          const file = auditedFiles[i];
           const fileName = file.path.split('/').pop() || file.path;
 
           sendEvent('file_scan_start', {
             fileIndex: i,
             filePath: file.path,
             fileName,
-            totalFiles: contextFiles.length,
+            totalFiles: auditedFiles.length,
             linesCount: (file.content || '').split('\n').length
           });
 
@@ -80,25 +98,33 @@ export async function POST(req: NextRequest) {
 
         sendEvent('status', {
           phase: 'ast_completed',
-          message: `Varredura AST concluída em ${contextFiles.length} arquivos (${allDeterministicFindings.length} achados estáticos). Analisando lógica contextual com IA...`
+          message: `Varredura AST concluída em ${auditedFiles.length} arquivos (${allDeterministicFindings.length} achados estáticos). Analisando lógica contextual com IA...`
         });
 
         // 2. Chamada ao Modelo para análise contextual profunda
         let aiFindings: ScoredFinding[] = [];
         try {
           const ai = getAIClient(apiKey);
-          const fileContext = contextFiles
+          const fileContext = auditedFiles
             .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
             .join('\n');
+
+          const testContextNote = existingTestPaths.length > 0
+            ? `CONTEXTO SOBRE TESTES NO REPOSITÓRIO:
+O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes automatizados identificados (ex: ${existingTestPaths.slice(0, 8).join(', ')}...).
+NÃO assuma nem afirme que o repositório carece de testes automatizados ou que precisa criar suíte inicial de testes.`
+            : `Nenhum arquivo de teste automatizado identificado no escopo inicial.`;
 
           const prompt = `
             Você é um auditor de segurança sénior e arquiteto AppSec. Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras (R01-R28 e CTF-R01-R11).
             Não invente regras novas nem severidades — use apenas os IDs exatos do catálogo.
 
+            ${testContextNote}
+
             CATÁLOGO DE REGRAS:
             ${ruleCatalogAsPrompt()}
 
-            CÓDIGO A AUDITAR:
+            CÓDIGO A AUDITAR (Arquivos de teste foram intencionalmente excluídos para economizar tokens):
             ${fileContext}
 
             Para cada vulnerabilidade real encontrada, identifique o ID exato da regra violada, a localização exata, uma descrição curta e um trecho de evidência (máx 5 linhas).
@@ -217,6 +243,8 @@ export async function POST(req: NextRequest) {
           counts: scoreResult.counts,
           classification: scoreResult.classification,
           classificationLabel: scoreResult.classificationLabel,
+          existingTestPaths,
+          detectedAutomatedTestsCount: existingTestPaths.length,
           harnessTraces,
           harnessToolsUsed: ['tool_scan_ast', 'tool_inspect_file', 'tool_generate_patch'],
         };
@@ -230,16 +258,19 @@ export async function POST(req: NextRequest) {
         });
 
         // 3.1 Gera imediatamente a versão determinística de alta qualidade (zero delay, sem risco de timeout)
-        const instantVerifiedContents = ensureCompleteBlueprintItems([], combinedFindings, contextFiles);
+        const instantVerifiedContents = ensureCompleteBlueprintItems([], combinedFindings, auditedFiles);
         let blueprintMd = renderSecurityBlueprint({
           projectName: projectName || 'Projeto',
           date: new Date().toISOString().split('T')[0],
           findings: combinedFindings,
           contents: instantVerifiedContents,
+          existingTestPaths,
           globalContent: {
             checklistObrigatorio: [
               'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
-              'Rodar suite completa de testes de segurança automatizados',
+              existingTestPaths.length > 0
+                ? `Integrar testes de regressão de segurança à suíte de testes existente do projeto (${existingTestPaths.length} arquivos de teste)`
+                : 'Rodar suite completa de testes de segurança automatizados',
               'Garantir rotação imediata de quaisquer chaves ou credenciais expostas'
             ],
             checklistRecomendado: [
@@ -265,19 +296,21 @@ export async function POST(req: NextRequest) {
               combinedFindings.map(f => (f.location || '').split(':')[0].trim().toLowerCase()).filter(Boolean)
             );
 
-            const relevantContextFiles = contextFiles.filter(f => 
+            const relevantContextFiles = auditedFiles.filter(f => 
               findingFilePaths.has(f.path.toLowerCase()) ||
               Array.from(findingFilePaths).some(p => p && (f.path.toLowerCase().endsWith(p) || p.endsWith(f.path.toLowerCase())))
             ).slice(0, 10); // Limite de 10 arquivos para performance ultrarrápida
 
             const relevantFileContext = relevantContextFiles.length > 0
               ? relevantContextFiles.map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n')
-              : contextFiles.slice(0, 5).map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n');
+              : auditedFiles.slice(0, 5).map(f => `--- ${f.path} ---\n${f.content}\n`).join('\n');
 
             const ai = getAIClient(apiKey);
             const blueprintPrompt = `
               Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
               Melhore o conteúdo de resolução das vulnerabilidades identificadas abaixo.
+
+              ${existingTestPaths.length > 0 ? `NOTA: O projeto já possui ${existingTestPaths.length} arquivos de testes automatizados. Os testes devem complementar a suíte existente.` : ''}
 
               DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
               - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, pronto para substituir o ficheiro anterior na íntegra.
@@ -327,16 +360,19 @@ export async function POST(req: NextRequest) {
             const bpItems = (bpParsed.items || []) as FindingContent[];
 
             if (bpItems.length > 0) {
-              const refinedContents = ensureCompleteBlueprintItems(bpItems, combinedFindings, contextFiles);
+              const refinedContents = ensureCompleteBlueprintItems(bpItems, combinedFindings, auditedFiles);
               blueprintMd = renderSecurityBlueprint({
                 projectName: projectName || 'Projeto',
                 date: new Date().toISOString().split('T')[0],
                 findings: combinedFindings,
                 contents: refinedContents,
+                existingTestPaths,
                 globalContent: {
                   checklistObrigatorio: bpParsed?.checklistObrigatorio || [
                     'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
-                    'Rodar suite completa de testes de segurança automatizados'
+                    existingTestPaths.length > 0
+                      ? `Integrar testes de regressão de segurança à suíte de testes existente do projeto (${existingTestPaths.length} arquivos de teste)`
+                      : 'Rodar suite completa de testes de segurança automatizados'
                   ],
                   checklistRecomendado: bpParsed?.checklistRecomendado || [
                     'Habilitar scan de segredos e linters de segurança no CI/CD',

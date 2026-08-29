@@ -64,6 +64,8 @@ export interface SecurityAuditResult {
   classification: string;
   classificationLabel: string;
   discardedInvalidRules?: string[];
+  existingTestPaths?: string[];
+  detectedAutomatedTestsCount?: number;
   harnessTraces?: AgentTrace[];
   harnessToolsUsed?: string[];
   harnessPatches?: {

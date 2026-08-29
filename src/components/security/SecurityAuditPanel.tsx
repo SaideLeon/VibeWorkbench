@@ -551,7 +551,7 @@ export const SecurityAuditPanel = ({
 
             {/* Audited Files Summary Banner */}
             {lastAuditedFiles && lastAuditedFiles.length > 0 && (
-              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs">
+              <div className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-gray-400 flex items-center gap-1.5">
                     <Files className="w-3.5 h-3.5 text-indigo-400" />
@@ -559,11 +559,20 @@ export const SecurityAuditPanel = ({
                   </span>
                   <button
                     onClick={() => setShowAuditedFilesList(prev => !prev)}
-                    className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium"
+                    className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium cursor-pointer"
                   >
                     {showAuditedFilesList ? 'Ocultar lista' : 'Ver ficheiros'}
                   </button>
                 </div>
+
+                {(auditResult.detectedAutomatedTestsCount || (auditResult.existingTestPaths && auditResult.existingTestPaths.length > 0)) ? (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 text-[11px]">
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <span>
+                      <strong>{auditResult.detectedAutomatedTestsCount || auditResult.existingTestPaths?.length} arquivo(s) de testes automatizados</strong> identificados no repositório. Conteúdo preservado e excluído da auditoria para economia de tokens.
+                    </span>
+                  </div>
+                ) : null}
 
                 {showAuditedFilesList && (
                   <div className="mt-2.5 pt-2 border-t border-white/10 max-h-32 overflow-y-auto space-y-1 font-mono text-[11px] text-gray-300">
@@ -573,7 +582,7 @@ export const SecurityAuditPanel = ({
                         {onOpenFile && (
                           <button
                             onClick={() => onOpenFile(f.path)}
-                            className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 shrink-0 ml-2"
+                            className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 shrink-0 ml-2 cursor-pointer"
                           >
                             Abrir <ExternalLink className="w-3 h-3" />
                           </button>

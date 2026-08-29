@@ -5,6 +5,7 @@ import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/secur
 import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
 import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { DeepSeekHarnessEngine } from '@/server/agent/harness';
+import { isAutomatedTestFile } from '@/utils/file-selection';
 import { AgentTrace } from '@/types';
 
 export const runtime = 'nodejs';
@@ -34,24 +35,46 @@ const AUDIT_RESPONSE_SCHEMA = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { contextFiles, apiKey, projectName, useHarness } = await req.json();
+    const { contextFiles, apiKey, projectName, useHarness, existingTestPaths: inputTestPaths } = await req.json();
 
     if (!Array.isArray(contextFiles) || contextFiles.length === 0) {
       throw new AppError('Nenhum ficheiro fornecido para auditoria', 400);
     }
 
+    // Filtra estritamente os arquivos de teste:
+    // - Não sobe conteúdo de testes para economizar tokens
+    // - Extrai caminhos para contextualizar o modelo
+    const detectedFromContext = contextFiles.filter(f => isAutomatedTestFile(f.path)).map(f => f.path);
+    const existingTestPaths: string[] = Array.from(new Set([
+      ...(Array.isArray(inputTestPaths) ? inputTestPaths : []),
+      ...detectedFromContext
+    ]));
+
+    const auditedFiles = contextFiles.filter(f => !isAutomatedTestFile(f.path));
+    if (auditedFiles.length === 0 && contextFiles.length > 0) {
+      auditedFiles.push(...contextFiles);
+    }
+
     // 1. Varredura estática determinística de alta precisão para as 36 regras (R01-R28 + CTF-R01-R11)
-    const deterministicSASTFindings = scanFilesWithSAST(contextFiles);
+    const deterministicSASTFindings = scanFilesWithSAST(auditedFiles);
 
     const ai = getAIClient(apiKey);
-    const fileContext = contextFiles
+    const fileContext = auditedFiles
       .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
       .join('\n');
+
+    const testContextNote = existingTestPaths.length > 0
+      ? `CONTEXTO DE TESTES NO REPOSITÓRIO:
+O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes automatizados identificados (ex: ${existingTestPaths.slice(0, 8).join(', ')}...).
+NÃO alegue que o repositório carece de testes automatizados ou que precisa criar suíte inicial de testes do zero.`
+      : `Nenhum arquivo de teste automatizado identificado no escopo auditado.`;
 
     const prompt = `
       Você é um auditor de segurança de código sénior. Analise o código abaixo
       EXCLUSIVAMENTE contra o catálogo de regras fornecido. Não invente regras
       novas nem severidades — use apenas os IDs do catálogo.
+
+      ${testContextNote}
 
       CATÁLOGO DE REGRAS:
       ${ruleCatalogAsPrompt()}
@@ -61,7 +84,7 @@ export async function POST(req: NextRequest) {
       - R03b [ALTO]: Reconhecimento de padrões característicos de chave viva (Stripe sk_live_/sk_test_, AWS AKIA, Mercado Pago APP_USR-, Anthropic sk-ant-, URIs de base de dados mongodb:// postgres://, tokens de bot Telegram/Discord e tokens de alta entropia).
       - R03c [CRÍTICO]: Remediação de secret vazado — rotação obrigatória. Sempre que for detectado um secret no repositório ou no histórico, indicar como imperativo a revogação/rotação imediata da credencial no painel do provedor antes da limpeza do Git, pois reescrever histórico sem revogar é apenas cosmético.
 
-      CÓDIGO A AUDITAR:
+      CÓDIGO A AUDITAR (Arquivos de testes automatizados foram omitidos para economizar tokens):
       ${fileContext}
 
       Para cada vulnerabilidade real encontrada (não hipotética), identifique o ID
@@ -204,6 +227,8 @@ export async function POST(req: NextRequest) {
       counts: scoreResult.counts,
       classification: scoreResult.classification,
       classificationLabel: scoreResult.classificationLabel,
+      existingTestPaths,
+      detectedAutomatedTestsCount: existingTestPaths.length,
       ...(invalidRuleIds.length > 0 ? { discardedInvalidRules: invalidRuleIds } : {}),
       harnessTraces,
       harnessToolsUsed: toolsUsed,

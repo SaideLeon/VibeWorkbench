@@ -5,6 +5,7 @@ import { getRuleById } from '@/server/security/ruleset';
 import { ScoredFinding } from '@/server/security/scoring';
 import { renderSecurityBlueprint, FindingContent, GlobalBlueprintContent } from '@/server/security/blueprint-template';
 import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
+import { isAutomatedTestFile } from '@/utils/file-selection';
 
 export const runtime = 'nodejs';
 
@@ -105,7 +106,15 @@ const BLUEPRINT_GENERATION_SCHEMA = {
 
 export async function POST(req: NextRequest) {
   try {
-    const { findings, contextFiles, projectName, apiKey } = await req.json();
+    const { findings, contextFiles, projectName, apiKey, existingTestPaths: inputTestPaths } = await req.json();
+
+    const detectedFromContext = (contextFiles || []).filter((f: any) => isAutomatedTestFile(f.path)).map((f: any) => f.path);
+    const existingTestPaths: string[] = Array.from(new Set([
+      ...(Array.isArray(inputTestPaths) ? inputTestPaths : []),
+      ...detectedFromContext
+    ]));
+
+    const auditedFiles = (contextFiles || []).filter((f: any) => !isAutomatedTestFile(f.path));
 
     if (!Array.isArray(findings) || findings.length === 0) {
       // Nenhuma vulnerabilidade: blueprint limpo aprovado
@@ -114,12 +123,13 @@ export async function POST(req: NextRequest) {
         date: new Date().toISOString().split('T')[0],
         findings: [],
         contents: [],
+        existingTestPaths,
       });
       return new NextResponse(md, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
     }
 
     const ai = getAIClient(apiKey);
-    const fileContext = (contextFiles || [])
+    const fileContext = auditedFiles
       .map((f: any) => `--- ${f.path} ---\n${f.content}\n`)
       .join('\n');
 
@@ -134,11 +144,20 @@ Evidência Identificada:
 ${f.evidence || '(ver ficheiro indicado)'}`;
     }).join('\n\n====================\n\n');
 
+    const testContextDirective = existingTestPaths.length > 0
+      ? `CONTEXTO SOBRE TESTES EXISTENTES NO REPOSITÓRIO:
+O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes automatizados detectados (ex: ${existingTestPaths.slice(0, 8).join(', ')}...).
+- NÃO declare que o projeto carece de testes automatizados ou que precisa criar suíte básica do zero.
+- Os testes fornecidos na seção "teste" de cada vulnerabilidade devem ser testes de regressão de segurança específicos para serem adicionados à suíte existente.`
+      : '';
+
     const prompt = `
       Você é um Arquiteto e Engenheiro de Segurança de Software Principal especializado em Application Security, DevSecOps e Remediação de Vulnerabilidades.
       
       Gere um Blueprint de Correcção de Segurança EXTREMAMENTE DETALHADO, rigoroso e 100% pronto para produção para as vulnerabilidades identificadas.
       
+      ${testContextDirective}
+
       ESTRUTURA E DIRETRIZES DE QUALIDADE OBRIGATÓRIAS:
       1. CÓDIGO 100% COMPLETO E PRESERVAÇÃO RIGOROSA:
          - Todo código nos passos de implementação DEVE estar totalmente escrito, funcional e pronto para substituição direta ou criação do ficheiro.
@@ -217,7 +236,7 @@ ${f.evidence || '(ver ficheiro indicado)'}`;
     const verifiedContents = ensureCompleteBlueprintItems(
       parsed.items || [],
       findings as ScoredFinding[],
-      contextFiles
+      auditedFiles
     );
 
     const md = renderSecurityBlueprint({
@@ -225,6 +244,7 @@ ${f.evidence || '(ver ficheiro indicado)'}`;
       date: new Date().toISOString().split('T')[0],
       findings: findings as ScoredFinding[],
       contents: verifiedContents,
+      existingTestPaths,
       globalContent: {
         checklistObrigatorio: parsed.checklistObrigatorio,
         checklistRecomendado: parsed.checklistRecomendado,

@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, FileText, MessageSquare, Files, Eye, Menu, X as CloseIcon, ShieldAlert, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { getAllCodeFiles, getAuditableCodeFiles } from '@/utils/file-selection';
+import { getAllCodeFiles, getAuditableCodeFiles, extractExistingTestPaths } from '@/utils/file-selection';
 import { findRelevantRepositoryFiles } from '@/utils/repository-search';
 
 // Components
@@ -210,7 +210,8 @@ export default function App() {
         throw new Error('Não foi possível ler o conteúdo dos ficheiros selecionados.');
       }
 
-      await runAudit(fetchedFiles, projectName, apiKeys[keyIndex]);
+      const allRepoTestPaths = extractExistingTestPaths(files);
+      await runAudit(fetchedFiles, projectName, apiKeys[keyIndex], undefined, allRepoTestPaths);
       showToast(`Auditoria concluída em ${fetchedFiles.length} ficheiro(s)!`, 'success');
     } catch (err: any) {
       showToast(err.message || 'Falha na auditoria de segurança.', 'error');

@@ -83,6 +83,82 @@ const EXCLUDED_SELECT_ALL_FILES = new Set([
   'license.md'
 ]);
 
+// Automated test directory markers (case-insensitive)
+const TEST_DIR_PATTERNS = [
+  '/__tests__/',
+  '/__test__/',
+  '/__mocks__/',
+  '/tests/',
+  '/test/',
+  '/spec/',
+  '/specs/',
+  '/cypress/',
+  '/playwright/',
+  '/e2e/',
+  '/test-e2e/',
+  '/testing/',
+  '/fixtures/',
+  '/__snapshots__/'
+];
+
+// Automated test file suffix patterns (case-insensitive)
+const TEST_FILE_PATTERNS = [
+  /\.test\.[a-zA-Z0-9]+$/i,
+  /\.spec\.[a-zA-Z0-9]+$/i,
+  /_test\.[a-zA-Z0-9]+$/i,
+  /_spec\.[a-zA-Z0-9]+$/i,
+  /^test_.*\.py$/i,
+  /test.*\.py$/i,
+  /test.*\.go$/i,
+  /[a-zA-Z0-9]+test\.(?:java|kt|scala|php|rb|rs|cs|swift)$/i,
+  /[a-zA-Z0-9]+tests\.(?:java|kt|scala|php|rb|rs|cs|swift)$/i,
+  /[a-zA-Z0-9]+testcase\.(?:java|kt|scala|php|rb|rs|cs|swift)$/i,
+  /setuptests\.[a-zA-Z0-9]+$/i,
+  /jest\.setup\.[a-zA-Z0-9]+$/i,
+  /vitest\.setup\.[a-zA-Z0-9]+$/i,
+  /jest\.config\.[a-zA-Z0-9]+$/i,
+  /vitest\.config\.[a-zA-Z0-9]+$/i,
+  /playwright\.config\.[a-zA-Z0-9]+$/i,
+  /cypress\.config\.[a-zA-Z0-9]+$/i
+];
+
+/**
+ * Identifies if a file path is part of an automated test suite (test directory or test file).
+ * Test files are excluded from SAST AI prompts to save tokens and prevent false positives,
+ * while their paths are extracted to contextualize that tests already exist in the project.
+ */
+export function isAutomatedTestFile(path: string): boolean {
+  if (!path) return false;
+  const normalized = `/${path.toLowerCase().replace(/\\/g, '/')}`;
+  const filename = normalized.split('/').pop() || '';
+
+  // 1. Directory-level checks
+  for (const dir of TEST_DIR_PATTERNS) {
+    if (normalized.includes(dir)) {
+      return true;
+    }
+  }
+
+  // 2. File-level regex checks
+  for (const regex of TEST_FILE_PATTERNS) {
+    if (regex.test(filename)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Extracts and returns all file paths in a repository that are automated test files.
+ */
+export function extractExistingTestPaths(files: { path: string }[] | FileNode[]): string[] {
+  if (!Array.isArray(files)) return [];
+  return files
+    .map(f => f.path)
+    .filter(path => isAutomatedTestFile(path));
+}
+
 /**
  * Checks if a file path is likely a code / readable text file
  */
@@ -117,29 +193,34 @@ export function isExcludedFromSelectAll(path: string): boolean {
   const filename = normalized.split('/').pop() || '';
   const isRootFile = !normalized.includes('/');
 
-  // 1. Exclude forbidden directories (.github/, public/, .vscode/, docs/, etc.)
+  // 1. Exclude automated test suites and files to save tokens and prevent false positives
+  if (isAutomatedTestFile(path)) {
+    return true;
+  }
+
+  // 2. Exclude forbidden directories (.github/, public/, .vscode/, docs/, etc.)
   for (const dir of EXCLUDED_SELECT_ALL_DIRS) {
     if (normalized.startsWith(dir) || normalized.includes(`/${dir}`)) {
       return true;
     }
   }
 
-  // 2. Exclude known root metadata/config/lock files
+  // 3. Exclude known root metadata/config/lock files
   if (EXCLUDED_SELECT_ALL_FILES.has(filename)) {
     return true;
   }
 
-  // 3. Exclude documentation and markdown files (*.md, *.markdown, *.txt) anywhere or at root
+  // 4. Exclude documentation and markdown files (*.md, *.markdown, *.txt) anywhere or at root
   if (filename.endsWith('.md') || filename.endsWith('.markdown') || filename.endsWith('.txt')) {
     return true;
   }
 
-  // 4. Exclude root-level configuration files (e.g., config.*, .*rc, .*config.*)
+  // 5. Exclude root-level configuration files (e.g., config.*, .*rc, .*config.*)
   if (isRootFile && (filename.startsWith('.') || filename.includes('config.') || filename.endsWith('.sh'))) {
     return true;
   }
 
-  // 5. Exclude static asset extensions
+  // 6. Exclude static asset extensions
   const parts = filename.split('.');
   if (parts.length > 1) {
     const ext = parts.pop() || '';

@@ -3,6 +3,7 @@ import { SecurityAuditResult } from '@/types';
 import { runSecurityAuditStream, runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
 import { githubApi } from '@/services/github.api';
 import { limitTextContext } from '@/utils/textLimiter';
+import { isAutomatedTestFile, extractExistingTestPaths } from '@/utils/file-selection';
 
 export interface AuditProgress {
   phase: 'idle' | 'fetching' | 'auditing' | 'generating_blueprint' | 'generating_patch';
@@ -46,7 +47,8 @@ export function useSecurityAudit() {
     files: { path: string; content: string }[],
     projectName: string,
     apiKey?: string,
-    overrideHarnessMode?: boolean
+    overrideHarnessMode?: boolean,
+    testPaths?: string[]
   ) => {
     setIsAuditing(true);
     setAuditError(null);
@@ -54,15 +56,27 @@ export function useSecurityAudit() {
     setPatchContent(null);
     setCreatedPR(null);
     const activeHarness = overrideHarnessMode ?? isHarnessAuditMode;
+
+    // Detecta e extrai caminhos de testes automatizados
+    const detectedTestPaths = extractExistingTestPaths(files);
+    const existingTestPaths = Array.from(new Set([
+      ...(testPaths || []),
+      ...detectedTestPaths
+    ]));
+
+    // Exclui estritamente arquivos de teste do conteúdo auditado para evitar desperdício de tokens
+    const auditableFiles = files.filter(f => !isAutomatedTestFile(f.path));
+    const effectiveFiles = auditableFiles.length > 0 ? auditableFiles : files;
+
     setAuditProgress({ 
       phase: 'auditing', 
       message: activeHarness 
-        ? `[DeepSeek-Harness] A construir AST de segurança para ${files.length} ficheiro(s)...`
-        : `A analisar ${files.length} ficheiro(s) contra catálogo de segurança...` 
+        ? `[DeepSeek-Harness] A construir AST de segurança para ${effectiveFiles.length} ficheiro(s)...`
+        : `A analisar ${effectiveFiles.length} ficheiro(s) contra catálogo de segurança...` 
     });
 
     try {
-      const limitedFiles = files.map((f) => ({ path: f.path, content: limitTextContext(f.content, 600) }));
+      const limitedFiles = effectiveFiles.map((f) => ({ path: f.path, content: limitTextContext(f.content, 600) }));
       setLastContextFiles(limitedFiles);
 
       // Executa via Streaming Real SSE
@@ -96,7 +110,8 @@ export function useSecurityAudit() {
           onBlueprintResult: (bp) => {
             setBlueprintMarkdown(bp);
           }
-        }
+        },
+        existingTestPaths
       );
 
       setAuditResult(streamRes.auditResult);
@@ -110,7 +125,8 @@ export function useSecurityAudit() {
             streamRes.auditResult.findings,
             limitedFiles,
             projectName,
-            apiKey
+            apiKey,
+            existingTestPaths
           );
         } catch (bpErr) {
           console.warn('Fallback de geração de Blueprint falhou:', bpErr);

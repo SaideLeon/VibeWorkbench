@@ -27,12 +27,13 @@ export async function runSecurityAuditStream(
   projectName?: string,
   apiKey?: string,
   useHarness: boolean = true,
-  callbacks?: StreamAuditCallbacks
+  callbacks?: StreamAuditCallbacks,
+  existingTestPaths?: string[]
 ): Promise<{ auditResult: SecurityAuditResult; blueprintMarkdown: string }> {
   const response = await fetch('/api/security/audit-stream', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness }),
+    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness, existingTestPaths }),
   });
 
   if (!response.ok) {
@@ -109,12 +110,13 @@ export async function runSecurityAudit(
   contextFiles: { path: string; content: string }[],
   projectName?: string,
   apiKey?: string,
-  useHarness: boolean = true
+  useHarness: boolean = true,
+  existingTestPaths?: string[]
 ): Promise<SecurityAuditResult> {
   const response = await fetch('/api/security/audit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness }),
+    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness, existingTestPaths }),
   });
 
   if (!response.ok) {
@@ -128,12 +130,13 @@ export async function generateSecurityBlueprint(
   findings: SecurityFinding[],
   contextFiles: { path: string; content: string }[],
   projectName?: string,
-  apiKey?: string
+  apiKey?: string,
+  existingTestPaths?: string[]
 ): Promise<string> {
   const response = await fetch('/api/security/blueprint', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ findings, contextFiles, projectName, apiKey }),
+    body: JSON.stringify({ findings, contextFiles, projectName, apiKey, existingTestPaths }),
   });
 
   if (!response.ok) {
