@@ -1,6 +1,6 @@
 {
   "name": "Mitigar IA",
-  "description": "An intelligent GitHub repository analyzer and security auditor with multi-file and directory selection, automated vulnerability checks against security rules, and remediation blueprints.",
+  "description": "An intelligent GitHub repository analyzer, security auditor, and DeepSeek-Harness autonomous agent engine with spatiotemporal plugin architecture, real-time reasoning traces, and surgical remediation.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -2,7 +2,8 @@ import { RepoTreeResponse } from '@/types';
 
 const fileCache = new Map<string, string>();
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> => {
+  if (typeof window === 'undefined') return {};
   const token = localStorage.getItem('github_token');
   return token ? { 'x-github-token': token } : {};
 };
@@ -187,6 +188,94 @@ export const githubApi = {
 
     if (!res.ok) {
       let errorMsg = 'Falha ao reverter commit no GitHub.';
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        errorMsg += ` (${res.status} ${res.statusText})`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async auditHistory(params: {
+    owner: string;
+    repo: string;
+    branch?: string;
+    maxCommits?: number;
+  }): Promise<{
+    success: boolean;
+    scannedCommitsCount: number;
+    leaks: Array<{
+      commitSha: string;
+      commitShortSha: string;
+      commitMessage: string;
+      author: {
+        name: string;
+        date: string | null;
+      };
+      filePath: string;
+      fileType: string;
+      isNonObvious: boolean;
+      provider: string;
+      patternName: string;
+      ruleId: string;
+      severity: string;
+      maskedSecret: string;
+      rawSecretPreview: string;
+      lineSnippet: string;
+      lineNumber?: number;
+      changeType: 'added' | 'modified';
+      patchHunkHeader?: string;
+    }>;
+    summary: {
+      totalLeaks: number;
+      providers: Record<string, number>;
+      nonObviousCount: number;
+      criticalCount: number;
+      highCount: number;
+    };
+  }> {
+    const branchParam = params.branch ? `&branch=${encodeURIComponent(params.branch)}` : '';
+    const maxParam = params.maxCommits ? `&maxCommits=${params.maxCommits}` : '';
+    const res = await fetch(`/api/github/audit-history?owner=${params.owner}&repo=${params.repo}${branchParam}${maxParam}`, {
+      headers: getAuthHeaders(),
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Falha ao auditar histórico de commits do GitHub.';
+      try {
+        const errData = await res.json();
+        errorMsg = errData.error || errData.message || errorMsg;
+      } catch {
+        errorMsg += ` (${res.status} ${res.statusText})`;
+      }
+      throw new Error(errorMsg);
+    }
+
+    return res.json();
+  },
+
+  async validateSecret(secret: string, provider: string): Promise<{
+    success: boolean;
+    valid: boolean;
+    provider: string;
+    statusText: string;
+    httpStatus?: number;
+    testedAt: string;
+  }> {
+    const res = await fetch('/api/github/validate-secret', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ secret, provider }),
+    });
+
+    if (!res.ok) {
+      let errorMsg = 'Falha ao validar status da credencial.';
       try {
         const errData = await res.json();
         errorMsg = errData.error || errData.message || errorMsg;

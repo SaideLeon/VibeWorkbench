@@ -158,6 +158,13 @@ ${f.evidence || '(ver ficheiro indicado)'}`;
       4. CONTEXTO E IMPACTO:
          - Explique claramente o que existe actualmente, por que é explorável (com código de exemplo do ataque/payload se aplicável) e lista de impactos reais no negócio.
 
+      5. REMEDIAÇÃO DE SECRETS E ROTAÇÃO OBRIGATÓRIA (R03a, R03b, R03c):
+         - Para qualquer secret vazado (R03a/R03b/R03c), o Blueprint DEVE prescrever os 3 passos de remediação estrita:
+           (1) Revogação/Rotação imediata da credencial directamente no painel do provedor (Stripe, AWS IAM, Mercado Pago, Anthropic, MongoDB Atlas, etc.);
+           (2) Reescrever o histórico do Git (via git filter-repo ou BFG Repo-Cleaner) apenas após a rotação;
+           (3) Teste de validação que confirma que a credencial antiga retorna erro 401/403 e que a nova variável de ambiente está em uso seguro.
+           - Enfatize que limpar o Git sem rotação no provedor é cosmético e não elimina o comprometimento.
+
       CÓDIGO-FONTE RELEVANTE AUDITADO:
       ${fileContext || '(baseie-se nas evidências e localizações fornecidas)'}
 

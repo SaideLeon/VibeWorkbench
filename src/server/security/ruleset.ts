@@ -29,7 +29,9 @@ export const RULESET: SecurityRule[] = [
   // A.1 — Autenticação e Gerenciamento de Credenciais
   { id: 'R01', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Hash de senha moderno', description: 'Senhas devem usar Argon2, bcrypt ou scrypt. MD5 e SHA-1 são proibidos.' },
   { id: 'R02', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Sem enumeração de utilizadores', description: 'Resposta de autenticação deve ser sempre genérica ("credenciais inválidas"). Nunca revelar se o e-mail existe.' },
-  { id: 'R03', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Secrets fora do código', description: 'Nenhum secret, API key ou token no código-fonte ou em ficheiros versionados. Apenas variáveis de ambiente fora do repositório.' },
+  { id: 'R03a', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Secrets em ficheiros não óbvios', description: 'Secrets vazam frequentemente fora do .env: em .md/README (passos de troubleshooting), ficheiros .json de configuração (ex.: appsettings.json), .txt "de teste", scripts de seed, e até em commits antigos já removidos do HEAD mas ainda presentes no histórico do Git. A auditoria deve inspeccionar todo o repositório, não só ficheiros de configuração óbvios, e verificar o histórico de commits (git log -p) quando disponível.' },
+  { id: 'R03b', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Reconhecimento de padrões de chave por provedor', description: 'Procurar prefixos característicos que indicam chave potencialmente viva: Google AI / GCP (AIza / novo formato AQ.), Stripe (sk_live_ / sk_test_), AWS (AKIA), Mercado Pago (APP_USR-), Anthropic (sk-ant-), OpenAI (sk- / sk-proj-), URIs de base de dados (mongodb://, mongodb+srv://, postgres://, postgresql://), tokens de bot (Telegram, Discord) e tokens genéricos de alta entropia sem prefixo reconhecível. A presença de qualquer um destes fora de variável de ambiente é CRÍTICO por si só.' },
+  { id: 'R03c', severity: 'CRITICO', category: 'Autenticação e Credenciais', name: 'Remediação de secret vazado — rotação obrigatória', description: 'Encontrar e apagar um secret do histórico do Git (via git filter-repo, BFG Repo-Cleaner, ou squash de histórico) não invalida a credencial. Se o repositório foi público em qualquer momento — ou clonado/acedido por terceiros antes da correcção — o secret deve ser tratado como comprometido. Acção obrigatória: (1) revogar/rotacionar a credencial directamente no painel do provedor (Google Cloud Console / Google AI Studio, Stripe, AWS IAM, Mercado Pago, Anthropic, MongoDB Atlas, etc.), (2) só depois reescrever o histórico para remover o rasto, (3) confirmar que a chave antiga retorna erro de autenticação após rotação. Reescrever o histórico sem rotacionar é uma correcção cosmética, não uma correcção de segurança.' },
   { id: 'R04', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Não criar autenticação própria', description: 'Usar soluções estabelecidas (Supabase Auth, Auth0, Keycloak, NextAuth). Autenticação manual aumenta superfície de ataque.' },
   { id: 'R05', severity: 'ALTO', category: 'Autenticação e Credenciais', name: 'Revogação de JWT', description: 'Implementar blocklist ou rotação de refresh tokens. Tokens sem revogação são inválidáveis mesmo após comprometimento.' },
 
@@ -83,10 +85,16 @@ export const RULESET: SecurityRule[] = [
   { id: 'CTF-R11', severity: 'ALTO', category: 'CTF — Acesso e Obscuridade', name: 'Seeds de jogo geradas e validadas no servidor', description: 'Seeds geradas no front-end são previsíveis. Devem ser geradas no servidor, vinculadas à sessão, invalidadas após uso.' },
 ];
 
-const RULE_MAP = new Map(RULESET.map((r) => [r.id, r]));
+const RULE_MAP = new Map(RULESET.map((r) => [r.id.toUpperCase(), r]));
+
+// Suporte para alias retrocompatível R03 -> R03a
+if (!RULE_MAP.has('R03') && RULE_MAP.has('R03A')) {
+  RULE_MAP.set('R03', RULE_MAP.get('R03A')!);
+}
 
 export function getRuleById(id: string): SecurityRule | undefined {
-  return RULE_MAP.get(id.toUpperCase());
+  if (!id) return undefined;
+  return RULE_MAP.get(id.trim().toUpperCase());
 }
 
 /** Catálogo formatado como texto compacto para injectar no prompt da IA. */

@@ -366,7 +366,7 @@ export function cycle6_auditAndCompare(
 
   const passed = score >= 80 && lostKeys.length === 0;
 
-  let reason = undefined;
+  let reason: string | undefined = undefined;
   if (!passed) {
     if (lostKeys.length > 0) {
       reason = `Símbolos essenciais da linguagem ${langInfo.language} foram removidos: [${lostKeys.join(', ')}].`;

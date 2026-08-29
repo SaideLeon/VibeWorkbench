@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Loader2, FileText, MessageSquare, Files, Eye, Menu, X as CloseIcon, ShieldAlert, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getAllCodeFiles, getAuditableCodeFiles } from '@/utils/file-selection';
+import { findRelevantRepositoryFiles } from '@/utils/repository-search';
 
 // Components
 import { Header } from '@/components/layout/Header';
@@ -18,6 +19,7 @@ import { CommitHistoryModal } from '@/components/git-history/CommitHistoryModal'
 import { useGithubRepository, parseGithubUrl } from '@/hooks/useGithubRepository';
 import { useAIChat } from '@/hooks/useAIChat';
 import { useSecurityAudit } from '@/hooks/useSecurityAudit';
+import { useGitHistoryAudit } from '@/hooks/useGitHistoryAudit';
 import { githubApi } from '@/services/github.api';
 
 import { useToast } from '@/components/ui/Toast';
@@ -63,6 +65,8 @@ export default function App() {
   const {
     chatHistory,
     isThinking,
+    isHarnessMode,
+    toggleHarnessMode,
     sendMessage,
     apiKeys,
     keyIndex,
@@ -86,12 +90,23 @@ export default function App() {
     isCreatingPR,
     createdPR,
     lastContextFiles,
+    isHarnessAuditMode,
+    toggleHarnessAuditMode,
     runAudit,
     downloadBlueprint: downloadSecurityBlueprint,
     downloadPatch: downloadSecurityPatch,
     generatePatch: generateSecurityPatch,
     createPullRequest,
   } = useSecurityAudit();
+
+  const {
+    isAuditingHistory,
+    historyLeaks,
+    historySummary,
+    scannedCommitsCount,
+    historyAuditError,
+    runHistoryAudit,
+  } = useGitHistoryAudit();
 
   const totalCodeCount = useMemo(() => getAllCodeFiles(files).length, [files]);
 
@@ -256,6 +271,52 @@ export default function App() {
   const handleClearRepository = () => {
     clearRepository();
     setViewMode('landing');
+  };
+
+  const handleSendMessage = async (msg: string) => {
+    if (files.length > 0 && repoUrl) {
+      const projectName = repoUrl.split('github.com/')[1] || repoUrl;
+
+      // 1. Semantic search over repository files based on query
+      const scoredMatches = findRelevantRepositoryFiles(files, msg, {
+        activeFilePath: selectedFile?.path,
+        selectedPaths,
+        maxResults: 5
+      });
+
+      const targetPaths = scoredMatches.map(s => s.path);
+
+      // 2. Resolve content for relevant files (use in-memory selectedFile when possible)
+      let relevantFiles: { path: string; content: string }[] = [];
+      if (selectedFile && targetPaths.includes(selectedFile.path)) {
+        relevantFiles.push(selectedFile);
+      }
+
+      const pathsToFetch = targetPaths.filter(p => !relevantFiles.some(rf => rf.path === p));
+      if (pathsToFetch.length > 0) {
+        try {
+          const fetched = await fetchFilesByPaths(pathsToFetch);
+          relevantFiles = [...relevantFiles, ...fetched];
+        } catch (err) {
+          console.warn('Erro ao carregar arquivos semanticamente relevantes:', err);
+        }
+      }
+
+      // 3. Compact structural tree overview (top 75 paths)
+      const treeOverview = files
+        .filter(f => f.type === 'blob')
+        .slice(0, 75)
+        .map(f => f.path);
+
+      await sendMessage(msg, {
+        relevantFiles,
+        repoName: projectName,
+        treeOverview,
+        activeFile: selectedFile?.path
+      });
+    } else {
+      await sendMessage(msg);
+    }
   };
 
   return (
@@ -516,10 +577,17 @@ export default function App() {
                   {activeMainPanel === 'chat' ? (
                     <ChatInterface
                       messages={chatHistory}
-                      onSendMessage={sendMessage}
+                      onSendMessage={handleSendMessage}
                       isThinking={isThinking}
                       isMaximized={maximizedPanel === 'chat'}
                       onToggleMaximize={() => setMaximizedPanel(prev => prev === 'chat' ? null : 'chat')}
+                      activeFileName={selectedFile?.path}
+                      repoName={parsedRepo ? `${parsedRepo.owner}/${parsedRepo.repo}` : undefined}
+                      totalFilesCount={totalCodeCount}
+                      onOpenFile={handleFileSelect}
+                      availableFiles={files}
+                      isHarnessMode={isHarnessMode}
+                      onToggleHarnessMode={toggleHarnessMode}
                     />
                   ) : (
                     <SecurityAuditPanel
@@ -545,6 +613,24 @@ export default function App() {
                       currentFileName={selectedFile?.path}
                       lastAuditedFiles={lastContextFiles}
                       onOpenFile={handleFileSelect}
+                      isHarnessMode={isHarnessAuditMode}
+                      onToggleHarnessMode={toggleHarnessAuditMode}
+                      owner={parsedRepo?.owner}
+                      repo={parsedRepo?.repo}
+                      branch={branch}
+                      isAuditingHistory={isAuditingHistory}
+                      historyLeaks={historyLeaks}
+                      historySummary={historySummary}
+                      scannedCommitsCount={scannedCommitsCount}
+                      historyAuditError={historyAuditError}
+                      onRunHistoryAudit={(max) => {
+                        if (parsedRepo) {
+                          runHistoryAudit({ owner: parsedRepo.owner, repo: parsedRepo.repo, branch, maxCommits: max || 50 });
+                        }
+                      }}
+                      onSelectCommitForRollback={(sha) => {
+                        setIsCommitHistoryOpen(true);
+                      }}
                     />
                   )}
                 </div>

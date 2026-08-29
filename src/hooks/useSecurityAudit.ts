@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { SecurityAuditResult } from '@/types';
-import { runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
+import { runSecurityAuditStream, runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
 import { githubApi } from '@/services/github.api';
 import { limitTextContext } from '@/utils/textLimiter';
 
@@ -9,6 +9,8 @@ export interface AuditProgress {
   current?: number;
   total?: number;
   message?: string;
+  activeFilePath?: string;
+  activeFileIndex?: number;
 }
 
 export interface CreatedPullRequestInfo {
@@ -24,6 +26,7 @@ export interface CreatedPullRequestInfo {
 
 export function useSecurityAudit() {
   const [isAuditing, setIsAuditing] = useState(false);
+  const [isHarnessAuditMode, setIsHarnessAuditMode] = useState(true);
   const [auditProgress, setAuditProgress] = useState<AuditProgress>({ phase: 'idle' });
   const [auditResult, setAuditResult] = useState<SecurityAuditResult | null>(null);
   const [blueprintMarkdown, setBlueprintMarkdown] = useState<string | null>(null);
@@ -35,57 +38,85 @@ export function useSecurityAudit() {
   const [createdPR, setCreatedPR] = useState<CreatedPullRequestInfo | null>(null);
   const [lastContextFiles, setLastContextFiles] = useState<{ path: string; content: string }[]>([]);
 
+  const toggleHarnessAuditMode = useCallback(() => {
+    setIsHarnessAuditMode(prev => !prev);
+  }, []);
+
   const runAudit = useCallback(async (
     files: { path: string; content: string }[],
     projectName: string,
-    apiKey?: string
+    apiKey?: string,
+    overrideHarnessMode?: boolean
   ) => {
     setIsAuditing(true);
     setAuditError(null);
     setBlueprintMarkdown(null);
     setPatchContent(null);
     setCreatedPR(null);
+    const activeHarness = overrideHarnessMode ?? isHarnessAuditMode;
     setAuditProgress({ 
       phase: 'auditing', 
-      message: `A analisar ${files.length} ficheiro(s) contra catálogo de segurança...` 
+      message: activeHarness 
+        ? `[DeepSeek-Harness] A construir AST de segurança para ${files.length} ficheiro(s)...`
+        : `A analisar ${files.length} ficheiro(s) contra catálogo de segurança...` 
     });
 
     try {
       const limitedFiles = files.map((f) => ({ path: f.path, content: limitTextContext(f.content, 600) }));
       setLastContextFiles(limitedFiles);
 
-      // Passo 1: Executar a auditoria e cálculo de score
-      const result = await runSecurityAudit(limitedFiles, projectName, apiKey);
-      setAuditResult(result);
-
-      // Passo 2: Imediatamente a seguir, no mesmo fluxo ininterrupto, gerar o Blueprint detalhado
-      setAuditProgress({ 
-        phase: 'generating_blueprint', 
-        message: 'A gerar Blueprint detalhado com resoluções completas e testes...' 
-      });
-
-      const blueprintMd = await generateSecurityBlueprint(
-        result.findings,
+      // Executa via Streaming Real SSE
+      const streamRes = await runSecurityAuditStream(
         limitedFiles,
         projectName,
-        apiKey
+        apiKey,
+        activeHarness,
+        {
+          onFileScanStart: (data) => {
+            setAuditProgress(prev => ({
+              ...prev,
+              phase: 'auditing',
+              current: data.fileIndex + 1,
+              total: data.totalFiles,
+              activeFilePath: data.filePath,
+              activeFileIndex: data.fileIndex,
+              message: `Varrendo AST em ${data.fileName} (${data.fileIndex + 1}/${data.totalFiles})...`
+            }));
+          },
+          onStatus: (data) => {
+            setAuditProgress(prev => ({
+              ...prev,
+              phase: data.phase as any,
+              message: data.message
+            }));
+          },
+          onAuditResult: (res) => {
+            setAuditResult(res);
+          },
+          onBlueprintResult: (bp) => {
+            setBlueprintMarkdown(bp);
+          }
+        }
       );
 
-      setBlueprintMarkdown(blueprintMd);
+      setAuditResult(streamRes.auditResult);
+      setBlueprintMarkdown(streamRes.blueprintMarkdown);
 
-      // Passo 3: Gerar o patch estritamente baseado no Blueprint já produzido
-      try {
-        const patch = await generateSecurityPatch(
-          blueprintMd,
-          projectName,
-          apiKey
-        );
-        setPatchContent(patch);
-      } catch (patchErr) {
-        console.warn('Patch pré-gerado falhou, ficará disponível sob demanda a partir do Blueprint:', patchErr);
+      // Passo de geração de patch defensivo com base no Blueprint
+      if (streamRes.blueprintMarkdown) {
+        try {
+          const patch = await generateSecurityPatch(
+            streamRes.blueprintMarkdown,
+            projectName,
+            apiKey
+          );
+          setPatchContent(patch);
+        } catch (patchErr) {
+          console.warn('Patch pré-gerado falhou, ficará disponível sob demanda:', patchErr);
+        }
       }
 
-      return { auditResult: result, blueprint: blueprintMd };
+      return { auditResult: streamRes.auditResult, blueprint: streamRes.blueprintMarkdown };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido na auditoria e blueprint.';
       setAuditError(message);
@@ -94,7 +125,7 @@ export function useSecurityAudit() {
       setIsAuditing(false);
       setAuditProgress({ phase: 'idle' });
     }
-  }, []);
+  }, [isHarnessAuditMode]);
 
   const generatePatch = useCallback(async (projectName: string, apiKey?: string): Promise<string> => {
     if (patchContent) {
@@ -225,6 +256,8 @@ export function useSecurityAudit() {
 
   return {
     isAuditing,
+    isHarnessAuditMode,
+    toggleHarnessAuditMode,
     auditProgress,
     setAuditProgress,
     auditResult,

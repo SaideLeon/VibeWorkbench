@@ -1,3 +1,11 @@
+export interface ThinkOptions {
+  relevantFiles?: { path: string; content: string }[];
+  repoName?: string;
+  treeOverview?: string[];
+  activeFile?: string;
+  apiKey?: string;
+}
+
 export async function analyzeCode(
   files: { path: string; content: string }[],
   userQuery?: string,
@@ -35,8 +43,24 @@ export async function thinkAndSuggest(
   history: { role: string; content: string }[],
   currentInput: string,
   context: string,
-  apiKey?: string
+  apiKeyOrOptions?: string | ThinkOptions
 ) {
+  let apiKey: string | undefined;
+  let relevantFiles: { path: string; content: string }[] | undefined;
+  let repoName: string | undefined;
+  let treeOverview: string[] | undefined;
+  let activeFile: string | undefined;
+
+  if (typeof apiKeyOrOptions === 'string') {
+    apiKey = apiKeyOrOptions;
+  } else if (apiKeyOrOptions && typeof apiKeyOrOptions === 'object') {
+    apiKey = apiKeyOrOptions.apiKey;
+    relevantFiles = apiKeyOrOptions.relevantFiles;
+    repoName = apiKeyOrOptions.repoName;
+    treeOverview = apiKeyOrOptions.treeOverview;
+    activeFile = apiKeyOrOptions.activeFile;
+  }
+
   const response = await fetch('/api/ai/think', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -44,6 +68,10 @@ export async function thinkAndSuggest(
       history,
       currentInput,
       context,
+      relevantFiles,
+      repoName,
+      treeOverview,
+      activeFile,
       apiKey
     })
   });

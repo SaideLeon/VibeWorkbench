@@ -220,7 +220,6 @@ export const Header = ({
               <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-emerald-500 rounded-full border border-[#0a0a0a]" />
             )}
           </button>
-          <span className="text-sm text-gray-500 font-mono">v1.0.0</span>
         </div>
       </div>
 

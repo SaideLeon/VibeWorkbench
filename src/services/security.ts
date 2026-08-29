@@ -14,15 +14,107 @@ async function readError(response: Response, fallback: string): Promise<string> 
   return fallback;
 }
 
+export interface StreamAuditCallbacks {
+  onFileScanStart?: (data: { fileIndex: number; filePath: string; fileName: string; totalFiles: number; linesCount: number }) => void;
+  onAstFinding?: (data: { rule: string; severity: string; filePath: string; location: string; description: string }) => void;
+  onStatus?: (data: { phase: string; message: string }) => void;
+  onAuditResult?: (result: SecurityAuditResult) => void;
+  onBlueprintResult?: (blueprintMarkdown: string) => void;
+}
+
+export async function runSecurityAuditStream(
+  contextFiles: { path: string; content: string }[],
+  projectName?: string,
+  apiKey?: string,
+  useHarness: boolean = true,
+  callbacks?: StreamAuditCallbacks
+): Promise<{ auditResult: SecurityAuditResult; blueprintMarkdown: string }> {
+  const response = await fetch('/api/security/audit-stream', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Auditoria em streaming falhou: ${await readError(response, response.statusText)}`);
+  }
+
+  if (!response.body) {
+    throw new Error('Servidor não retornou stream de eventos.');
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let finalAuditResult: SecurityAuditResult | null = null;
+  let finalBlueprintMarkdown: string | null = null;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() || '';
+
+    let currentEvent = 'message';
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+
+      if (trimmed.startsWith('event: ')) {
+        currentEvent = trimmed.slice(7).trim();
+      } else if (trimmed.startsWith('data: ')) {
+        const rawData = trimmed.slice(6).trim();
+        try {
+          const parsed = JSON.parse(rawData);
+
+          if (currentEvent === 'file_scan_start') {
+            callbacks?.onFileScanStart?.(parsed);
+          } else if (currentEvent === 'ast_finding') {
+            callbacks?.onAstFinding?.(parsed);
+          } else if (currentEvent === 'status') {
+            callbacks?.onStatus?.(parsed);
+          } else if (currentEvent === 'audit_result') {
+            finalAuditResult = parsed;
+            callbacks?.onAuditResult?.(parsed);
+          } else if (currentEvent === 'blueprint_result') {
+            finalBlueprintMarkdown = parsed.blueprintMarkdown;
+            callbacks?.onBlueprintResult?.(parsed.blueprintMarkdown);
+          } else if (currentEvent === 'complete') {
+            if (parsed.auditResult) finalAuditResult = parsed.auditResult;
+            if (parsed.blueprintMarkdown) finalBlueprintMarkdown = parsed.blueprintMarkdown;
+          } else if (currentEvent === 'error') {
+            throw new Error(parsed.message || 'Erro durante varredura em streaming');
+          }
+        } catch (e: any) {
+          if (currentEvent === 'error') throw e;
+        }
+      }
+    }
+  }
+
+  if (!finalAuditResult) {
+    throw new Error('A auditoria foi finalizada sem retornar o resultado estruturado.');
+  }
+
+  return {
+    auditResult: finalAuditResult,
+    blueprintMarkdown: finalBlueprintMarkdown || ''
+  };
+}
+
 export async function runSecurityAudit(
   contextFiles: { path: string; content: string }[],
   projectName?: string,
-  apiKey?: string
+  apiKey?: string,
+  useHarness: boolean = true
 ): Promise<SecurityAuditResult> {
   const response = await fetch('/api/security/audit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ contextFiles, projectName, apiKey }),
+    body: JSON.stringify({ contextFiles, projectName, apiKey, useHarness }),
   });
 
   if (!response.ok) {
