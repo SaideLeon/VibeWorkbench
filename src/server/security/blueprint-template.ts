@@ -1,5 +1,6 @@
 import { getRuleById, Severity } from './ruleset';
-import { ScoredFinding, computeScore, sortFindingsBySeverity } from './scoring';
+import { ScoredFinding, computeScore, sortFindingsBySeverity, extractTopCriticalRemediations } from './scoring';
+import { AuditTerrainMap } from '@/types';
 
 export interface FindingContent {
   /** Índice do finding correspondente (na mesma ordem enviada à IA) */
@@ -38,14 +39,11 @@ const CLASSIFICATION_MD_LABEL: Record<string, string> = {
 
 /**
  * Renderiza o blueprint de segurança exatamente com a estrutura do modelo anexado:
- * - Score e classificação com emojis e formato de tabela oficial
+ * - Etapa 1: Mapa do Terreno da Auditoria (6 Eixos Fundamentais do E-book)
+ * - Score e classificação com emojis e formato de tabela oficial (Etapa 7)
  * - Tabela do Índice de Vulnerabilidades com colunas (#, Regra, Severidade, Localização, Esforço, Status)
- * - Seções detalhadas por vulnerabilidade com:
- *   - Contexto (O que existe actualmente + Por que é explorável + Impacto potencial)
- *   - Arquitectura da Correcção (Diagrama ASCII / Fluxo)
- *   - Implementação Passo a Passo com CÓDIGO COMPLETO pronto para copiar e colar
- *   - Teste de Validação (Caminho + Comando + Código completo + Resultado esperado)
- *   - Checklist de Deploy por falha
+ * - Seções detalhadas por vulnerabilidade (Etapas 2 a 6 + CTF)
+ * - Exercício 7: Plano de Ação Imediato (Top 3 Correções Críticas)
  * - Checklist Global Pré-Deploy (Obrigatório vs Recomendado)
  * - Tabela de Referências e Recursos
  */
@@ -56,9 +54,11 @@ export function renderSecurityBlueprint(params: {
   contents: FindingContent[];
   globalContent?: GlobalBlueprintContent;
   existingTestPaths?: string[];
+  terrainMap?: AuditTerrainMap;
 }): string {
-  const { projectName, date, findings, contents, globalContent, existingTestPaths } = params;
+  const { projectName, date, findings, contents, globalContent, existingTestPaths, terrainMap } = params;
   const scoreResult = computeScore(findings);
+  const topCriticals = extractTopCriticalRemediations(findings);
 
   // Emparelha cada finding com o seu conteúdo pela posição ORIGINAL antes de reordenar
   const contentByOriginalIndex = new Map(contents.map((c) => [c.index, c]));
@@ -84,6 +84,44 @@ export function renderSecurityBlueprint(params: {
       return `| ${i + 1} | [${f.rule}] ${title} | ${SEVERITY_EMOJI_LABEL[f.severity]} | \`${location}\` | ${effort} | ⬜ Pendente |`;
     })
     .join('\n');
+
+  // Mapa do Terreno (Etapa 1 do E-book)
+  let terrainSection = '';
+  if (terrainMap) {
+    terrainSection = `## 🗺️ Etapa 1: Mapa do Terreno da Auditoria
+
+> **Diretriz da Etapa 1 (E-book Vibe Coding):** *"Antes de procurar falhas, reúna o que precisa estar na mesa. Auditar sem contexto é chutar."*
+
+| Eixo Crítico | Status | Ficheiros Identificados | Descrição da Superfície |
+|---|---|---|---|
+| 🔐 **1. Autenticação** | ${terrainMap.axes.autenticacao.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.autenticacao.fileCount} ficheiro(s) | ${terrainMap.axes.autenticacao.categoryName} |
+| 🛡️ **2. Autorização** | ${terrainMap.axes.autorizacao.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.autorizacao.fileCount} ficheiro(s) | ${terrainMap.axes.autorizacao.categoryName} |
+| 🗄️ **3. Banco de Dados** | ${terrainMap.axes.bancoDeDados.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.bancoDeDados.fileCount} ficheiro(s) | ${terrainMap.axes.bancoDeDados.categoryName} |
+| 💳 **4. Financeiro** | ${terrainMap.axes.financeiro.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.financeiro.fileCount} ficheiro(s) | ${terrainMap.axes.financeiro.categoryName} |
+| 📤 **5. Uploads** | ${terrainMap.axes.uploads.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.uploads.fileCount} ficheiro(s) | ${terrainMap.axes.uploads.categoryName} |
+| 🔑 **6. Secrets** | ${terrainMap.axes.secrets.exists ? '✅ Presente' : '⬜ Ausente'} | ${terrainMap.axes.secrets.fileCount} ficheiro(s) | ${terrainMap.axes.secrets.categoryName} |
+
+*${terrainMap.summary}*
+
+---
+`;
+  }
+
+  // Exercício 7: Plano de Ação Imediato
+  let exercise7Section = '';
+  if (topCriticals.length > 0) {
+    exercise7Section = `## ⚡ Exercício 7: Plano de Ação Imediato (Top 3 Correções Críticas)
+
+> **Regra de Ouro (E-book Vibe Coding):** *"Junte o que você marcou nos exercícios 2 a 6. Calcule seu score. Depois, liste as três correções de prioridade crítica que você vai implementar primeiro. Esse é o seu plano de ação imediato."*
+
+${topCriticals.map((tc, idx) => `### ${idx + 1}. [${tc.rule}] em \`${tc.location}\`
+- **Falha:** ${tc.name}
+- **Ação Imediata:** ${tc.action}
+`).join('\n')}
+
+---
+`;
+  }
 
   // Blocos detalhados por vulnerabilidade
   const vulnBlocks = ordered
@@ -177,7 +215,7 @@ ${testFileHeader}${testCmd}${testCode}
 
 ---
 
-### Checklist de Deploy
+### Lista de Verificação antes do Lançamento
 
 ${checklistMd}
 `;
@@ -225,12 +263,11 @@ ${checklistMd}
 
 **Projecto:** ${projectName}  
 **Data da auditoria:** ${date}  
-**Auditado por:** Mitigar IA Security Audit Skill v1.0  
+**Auditado por:** Mitigar IA Security Audit Skill v1.0 (Metodologia E-book Vibe Coding — 7 Etapas)  
 ${testSuiteHeader}
-
 ---
 
-## Score de Segurança
+${terrainSection}## Score de Segurança (Etapa 7)
 
 | Métrica | Valor |
 |---------|-------|
@@ -243,7 +280,7 @@ ${testSuiteHeader}
 
 ---
 
-## Índice de Vulnerabilidades
+${exercise7Section}## Índice de Vulnerabilidades
 
 | # | Regra | Severidade | Localização | Esforço | Status |
 |---|-------|-----------|-------------|---------|--------|

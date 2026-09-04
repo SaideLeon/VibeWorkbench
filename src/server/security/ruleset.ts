@@ -11,7 +11,77 @@ export interface SecurityRule {
   category: string;
   name: string;
   description: string;
+  stageNumber?: number;
+  stageName?: string;
 }
+
+export interface AuditStageDefinition {
+  stageNumber: number;
+  title: string;
+  shortTitle: string;
+  description: string;
+  exercise: string;
+  ruleIds: string[];
+}
+
+export const AUDIT_STAGES: AuditStageDefinition[] = [
+  {
+    stageNumber: 1,
+    title: 'Etapa 1: Preparar o Terreno da Auditoria',
+    shortTitle: 'Preparar o Terreno',
+    description: 'Antes de procurar falhas, reúna o que precisa estar na mesa. Auditar sem contexto é chutar.',
+    exercise: 'Exercício 1: Mapear os seis eixos críticos (Autenticação, Autorização, Banco de Dados, Financeiro, Uploads, Secrets) marcando existência e localização.',
+    ruleIds: [],
+  },
+  {
+    stageNumber: 2,
+    title: 'Etapa 2: Autenticação e Credenciais',
+    shortTitle: 'Autenticação e Credenciais',
+    description: 'Como senhas são guardadas, como o sistema responde a tentativas de login, e onde secrets podem vazar.',
+    exercise: 'Exercício 2: Verificar senhas (Argon2/bcrypt/scrypt), erro genérico em login, ausência de secrets, autenticação não caseira e revogação de JWT.',
+    ruleIds: ['R01', 'R02', 'R03a', 'R03b', 'R03c', 'R04', 'R05', 'CTF-R01', 'CTF-R02', 'CTF-R03'],
+  },
+  {
+    stageNumber: 3,
+    title: 'Etapa 3: Rate Limiting e Abuso',
+    shortTitle: 'Rate Limiting e Abuso',
+    description: 'Proteção contra força bruta, inputs gigantes e corridas de requisições simultâneas (race conditions).',
+    exercise: 'Exercício 3: Encontrar rotas de saldo, crédito, cupom ou contadores e testar atomicidade contra chamadas simultâneas.',
+    ruleIds: ['R06', 'R07', 'R08', 'CTF-R07', 'CTF-R08', 'CTF-R09'],
+  },
+  {
+    stageNumber: 4,
+    title: 'Etapa 4: Validação e Sanitização de Dados',
+    shortTitle: 'Validação e Sanitização',
+    description: 'Nunca confiar no cliente. Validação server-side obrigatória, SQL injection, XSS e validação de uploads.',
+    exercise: 'Exercício 4: Testar formulários/endpoints com inputs vazios, gigantes ou contendo HTML/scripts.',
+    ruleIds: ['R09', 'R10', 'R11', 'R12', 'R13', 'R14', 'CTF-R04', 'CTF-R05', 'CTF-R06'],
+  },
+  {
+    stageNumber: 5,
+    title: 'Etapa 5: Controle de Acesso e Autorização',
+    shortTitle: 'Controle de Acesso',
+    description: 'Garantir que cada pessoa só acesse o que é dela. IDOR, regras de acesso explícitas, RLS restritivo e mass assignment.',
+    exercise: 'Exercício 5: Testar substituição de identificadores na URL ou body em rotas de recursos.',
+    ruleIds: ['R15', 'R16', 'R17', 'R18', 'CTF-R10'],
+  },
+  {
+    stageNumber: 6,
+    title: 'Etapa 6: Integridade da Lógica de Negócio',
+    shortTitle: 'Lógica de Negócio',
+    description: 'Fluxos onde um erro de lógica vira prejuízo real: dinheiro, reembolsos, saques e detecção de anomalias.',
+    exercise: 'Exercício 6: Mapear fluxo completo de reembolso ou cancelamento, validando pré-condições em cada etapa.',
+    ruleIds: ['R19', 'R20', 'R21', 'CTF-R11'],
+  },
+  {
+    stageNumber: 7,
+    title: 'Etapa 7: Práticas de Desenvolvimento e Pontuação Final',
+    shortTitle: 'Práticas e Pontuação',
+    description: 'Defesa em profundidade, testes automatizados de segurança, segurança no prompt e cálculo rigoroso do score.',
+    exercise: 'Exercício 7: Calcular score final (-25 Crítica, -10 Alta, -5 Média) e listar as 3 correções de prioridade crítica para ação imediata.',
+    ruleIds: ['R22', 'R23', 'R24', 'R25'],
+  },
+];
 
 export const SEVERITY_WEIGHT: Record<Severity, number> = {
   CRITICO: 25,

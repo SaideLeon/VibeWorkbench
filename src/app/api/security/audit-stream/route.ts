@@ -1,11 +1,12 @@
 import { NextRequest } from 'next/server';
 import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
 import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/security/ruleset';
-import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
+import { computeScore, sortFindingsBySeverity, ScoredFinding, extractTopCriticalRemediations } from '@/server/security/scoring';
 import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { renderSecurityBlueprint, FindingContent } from '@/server/security/blueprint-template';
 import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
 import { isAutomatedTestFile } from '@/utils/file-selection';
+import { prepareAuditTerrain, formatTerrainMapForPrompt } from '@/server/security/ground-preparation';
 import { AgentTrace } from '@/types';
 
 export const runtime = 'nodejs';
@@ -54,6 +55,20 @@ export async function POST(req: NextRequest) {
           timestamp: Date.now()
         });
 
+        // Etapa 1 da Auditoria (E-book Vibe Coding): Preparar o Terreno Mapeando os 6 Eixos Fundamentais
+        const terrainMap = prepareAuditTerrain(auditedFiles, projectName);
+        const terrainPromptSection = formatTerrainMapForPrompt(terrainMap);
+
+        sendEvent('stage_progress', {
+          stageNumber: 1,
+          stageTitle: 'Etapa 1: Preparar o Terreno da Auditoria',
+          message: 'Mapeando os 6 eixos críticos (Autenticação, Autorização, Banco de Dados, Financeiro, Uploads, Secrets)...',
+          coveredAxesCount: terrainMap.coveredAxesCount,
+          totalFilesAnalyzed: terrainMap.totalFilesAnalyzed,
+        });
+
+        sendEvent('terrain_map', terrainMap);
+
         // 1. Varredura determinística de alta precisão por arquivo com emissão de eventos reais para todas as 36 regras
         const allDeterministicFindings: ScoredFinding[] = [];
         
@@ -98,7 +113,7 @@ export async function POST(req: NextRequest) {
 
         sendEvent('status', {
           phase: 'ast_completed',
-          message: `Varredura AST concluída em ${auditedFiles.length} arquivos (${allDeterministicFindings.length} achados estáticos). Analisando lógica contextual com IA...`
+          message: `Varredura AST concluída em ${auditedFiles.length} arquivos (${allDeterministicFindings.length} achados estáticos). Analisando lógica contextual com IA segundo as 7 etapas do E-book...`
         });
 
         // 2. Chamada ao Modelo para análise contextual profunda
@@ -116,12 +131,15 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
             : `Nenhum arquivo de teste automatizado identificado no escopo inicial.`;
 
           const prompt = `
-            Você é um auditor de segurança sénior e arquiteto AppSec. Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras (R01-R28 e CTF-R01-R11).
+            Você é um auditor de segurança sénior e arquiteto AppSec seguindo rigorosamente a metodologia de 7 etapas da Auditoria de Segurança para Vibe Coding.
+            Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras (R01-R28 e CTF-R01-R11).
             Não invente regras novas nem severidades — use apenas os IDs exatos do catálogo.
+
+            ${terrainPromptSection}
 
             ${testContextNote}
 
-            CATÁLOGO DE REGRAS:
+            CATÁLOGO DE REGRAS POR ETAPAS (Etapas 2 a 7):
             ${ruleCatalogAsPrompt()}
 
             CÓDIGO A AUDITAR (Arquivos de teste foram intencionalmente excluídos para economizar tokens):
@@ -235,6 +253,8 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
           }
         ];
 
+        const topCriticalRemediations = extractTopCriticalRemediations(combinedFindings);
+
         const auditResult = {
           projectName: projectName || 'Projeto',
           date: new Date().toISOString(),
@@ -245,6 +265,8 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
           classificationLabel: scoreResult.classificationLabel,
           existingTestPaths,
           detectedAutomatedTestsCount: existingTestPaths.length,
+          terrainMap,
+          topCriticalRemediations,
           harnessTraces,
           harnessToolsUsed: ['tool_scan_ast', 'tool_inspect_file', 'tool_generate_patch'],
         };
@@ -265,6 +287,7 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
           findings: combinedFindings,
           contents: instantVerifiedContents,
           existingTestPaths,
+          terrainMap,
           globalContent: {
             checklistObrigatorio: [
               'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
@@ -308,14 +331,15 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
             const ai = getAIClient(apiKey);
             const blueprintPrompt = `
               Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
-              Melhore o conteúdo de resolução das vulnerabilidades identificadas abaixo.
+              Gere os detalhes cirúrgicos de resolução das vulnerabilidades identificadas.
 
               ${existingTestPaths.length > 0 ? `NOTA: O projeto já possui ${existingTestPaths.length} arquivos de testes automatizados. Os testes devem complementar a suíte existente.` : ''}
 
-              DIRETRIZ CRÍTICA DE QUALIDADE (SEM PLACEHOLDERS):
-              - Em "passos", cada passo DEVE conter o CÓDIGO 100% COMPLETO, pronto para substituir o ficheiro anterior na íntegra.
-              - É ESTRITAMENTE PROIBIDO retornar apenas comentários (ex: proibir "// Remediação recomendada", "// ... resto do código").
-              - Em "teste", forneça o código de teste unitário/segurança completo com describe/it executável.
+              DIRETRIZES DE ESCOPO CIRÚRGICO (SEM SOBRECARGA DE MEMÓRIA):
+              - Em "codigoActual": Mostre APENAS o trecho/função vulnerável (5 a 20 linhas). NUNCA o arquivo inteiro.
+              - Em "passos": Cada passo DEVE conter APENAS a função, método, RPC, SQL query ou middleware específico corrigido (10 a 35 linhas). NUNCA reescreva páginas inteiras como page.tsx ou componentes inteiros.
+              - Em "diagrama": Diagrama ASCII conciso (4 a 6 linhas).
+              - Em "teste": Teste automatizado conciso (15 a 25 linhas).
 
               CÓDIGO-FONTE RELEVANTE:
               ${relevantFileContext}
@@ -329,14 +353,14 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
                   {
                     "index": 0,
                     "titulo": "Título conciso da vulnerabilidade e resolução",
-                    "codigoActual": "código vulnerável existente",
+                    "codigoActual": "trecho específico vulnerável",
                     "codigoActualLinguagem": "typescript",
-                    "porQueExploravel": "Explicação detalhada da falha",
+                    "porQueExploravel": "Explicação concisa e direta",
                     "impacto": ["Impacto 1", "Impacto 2"],
                     "diagrama": "ASCII diagram",
-                    "passos": [{ "titulo": "Substituir arquivo", "linguagem": "typescript", "codigo": "código completo" }],
-                    "teste": { "caminhoFicheiro": "src/__tests__/security/test.test.ts", "comando": "npx vitest run src/__tests__/security/test.test.ts", "linguagem": "typescript", "codigo": "describe(...)", "resultadoEsperado": "OK" },
-                    "checklist": ["Item 1"],
+                    "passos": [{ "titulo": "Função ou RPC corrigida", "linguagem": "typescript", "codigo": "código cirúrgico da função" }],
+                    "teste": { "caminhoFicheiro": "tests/security/test.spec.ts", "comando": "npx vitest run tests/security/test.spec.ts", "linguagem": "typescript", "codigo": "describe(...)", "resultadoEsperado": "OK" },
+                    "checklist": ["Item 1", "Item 2"],
                     "esforco": "Baixo (< 30min)"
                   }
                 ]
@@ -367,6 +391,7 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
                 findings: combinedFindings,
                 contents: refinedContents,
                 existingTestPaths,
+                terrainMap,
                 globalContent: {
                   checklistObrigatorio: bpParsed?.checklistObrigatorio || [
                     'Aplicar correções críticas em todos os pontos apontados (R01-R28)',

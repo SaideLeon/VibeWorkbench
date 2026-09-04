@@ -24,7 +24,8 @@ import {
   Wrench,
   Zap,
   Activity,
-  Scan
+  Scan,
+  Compass
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -39,6 +40,7 @@ import { GitHistorySecretsAuditor } from './GitHistorySecretsAuditor';
 import { HistoryLeakItem, HistoryAuditSummary } from '@/hooks/useGitHistoryAudit';
 import { ReasoningTracePanel } from '@/components/ai-chat/ReasoningTracePanel';
 import { LiveAuditCodeScanner } from './LiveAuditCodeScanner';
+import { TerrainMapCard } from './TerrainMapCard';
 
 const SEVERITY_STYLES: Record<SecuritySeverity, { badge: string; dot: string; label: string }> = {
   CRITICO: { badge: 'bg-red-500/10 text-red-400 border-red-500/30', dot: 'bg-red-500', label: '🔴 CRÍTICO' },
@@ -174,7 +176,7 @@ export const SecurityAuditPanel = ({
   onRunHistoryAudit,
   onSelectCommitForRollback,
 }: SecurityAuditPanelProps) => {
-  const [activeTab, setActiveTab] = useState<'blueprint' | 'patch' | 'findings' | 'history' | 'reasoning'>('blueprint');
+  const [activeTab, setActiveTab] = useState<'blueprint' | 'patch' | 'terrain' | 'findings' | 'history' | 'reasoning'>('blueprint');
   const [selectedFileFilter, setSelectedFileFilter] = useState<string>('ALL');
   const [showAuditedFilesList, setShowAuditedFilesList] = useState(false);
   const [isCopiedBlueprint, setIsCopiedBlueprint] = useState(false);
@@ -703,6 +705,22 @@ export const SecurityAuditPanel = ({
               </button>
 
               <button
+                onClick={() => setActiveTab('terrain')}
+                className={cn(
+                  "px-3.5 py-2 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0",
+                  activeTab === 'terrain'
+                    ? "border-blue-500 text-blue-300 bg-blue-500/10 rounded-t-lg"
+                    : "border-transparent text-gray-400 hover:text-gray-200"
+                )}
+              >
+                <Compass className="w-3.5 h-3.5 text-blue-400" />
+                <span>🗺️ Terreno & Etapas (1-7)</span>
+                <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded-full hidden sm:inline">
+                  E-book
+                </span>
+              </button>
+
+              <button
                 onClick={handleSelectPatchTab}
                 className={cn(
                   "px-3.5 py-2 text-xs font-semibold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0",
@@ -1054,6 +1072,19 @@ export const SecurityAuditPanel = ({
                     </button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* TAB: TERRENO DA AUDITORIA & 7 ETAPAS (E-BOOK) */}
+            {activeTab === 'terrain' && (
+              <div className="space-y-4">
+                <TerrainMapCard
+                  terrainMap={auditResult.terrainMap}
+                  topCriticalRemediations={auditResult.topCriticalRemediations}
+                  findings={auditResult.findings}
+                  existingTestPaths={auditResult.existingTestPaths}
+                  onOpenFile={onOpenFile}
+                />
               </div>
             )}
 

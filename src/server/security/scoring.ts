@@ -74,3 +74,18 @@ const SEVERITY_ORDER: Record<Severity, number> = { CRITICO: 0, ALTO: 1, MEDIO: 2
 export function sortFindingsBySeverity<T extends { severity: Severity }>(findings: T[]): T[] {
   return [...findings].sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);
 }
+
+/**
+ * Exercício 7: Extrai as 3 correções de prioridade crítica mais urgentes
+ * para compor o Plano de Ação Imediato.
+ */
+export function extractTopCriticalRemediations(findings: ScoredFinding[]) {
+  const sorted = sortFindingsBySeverity(findings);
+  const topCriticals = sorted.slice(0, 3).map((f) => ({
+    rule: f.rule,
+    name: f.description,
+    location: f.location,
+    action: `Remediação prioritária para ${f.rule} em ${f.location}: aplicar validação, transação atômica ou rotação de segredo conforme diretriz da Etapa correspondente.`,
+  }));
+  return topCriticals;
+}

@@ -47,6 +47,38 @@ export interface AnalysisMessage {
 
 export type SecuritySeverity = 'CRITICO' | 'ALTO' | 'MEDIO';
 
+export interface TerrainAxis {
+  id: 'autenticacao' | 'autorizacao' | 'bancoDeDados' | 'financeiro' | 'uploads' | 'secrets';
+  name: string;
+  categoryName: string;
+  description: string;
+  exists: boolean;
+  fileCount: number;
+  files: { path: string; reason: string }[];
+}
+
+export interface AuditTerrainMap {
+  projectName: string;
+  totalFilesAnalyzed: number;
+  coveredAxesCount: number;
+  axes: {
+    autenticacao: TerrainAxis;
+    autorizacao: TerrainAxis;
+    bancoDeDados: TerrainAxis;
+    financeiro: TerrainAxis;
+    uploads: TerrainAxis;
+    secrets: TerrainAxis;
+  };
+  summary: string;
+}
+
+export interface TopCriticalRemediation {
+  rule: string;
+  name: string;
+  location: string;
+  action: string;
+}
+
 export interface SecurityFinding {
   rule: string;
   severity: SecuritySeverity;
@@ -63,6 +95,8 @@ export interface SecurityAuditResult {
   counts: Record<SecuritySeverity, number>;
   classification: string;
   classificationLabel: string;
+  terrainMap?: AuditTerrainMap;
+  topCriticalRemediations?: TopCriticalRemediation[];
   discardedInvalidRules?: string[];
   existingTestPaths?: string[];
   detectedAutomatedTestsCount?: number;

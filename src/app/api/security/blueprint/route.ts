@@ -6,6 +6,7 @@ import { ScoredFinding } from '@/server/security/scoring';
 import { renderSecurityBlueprint, FindingContent, GlobalBlueprintContent } from '@/server/security/blueprint-template';
 import { ensureCompleteBlueprintItems } from '@/server/security/remediation-builder';
 import { isAutomatedTestFile } from '@/utils/file-selection';
+import { prepareAuditTerrain } from '@/server/security/ground-preparation';
 
 export const runtime = 'nodejs';
 
@@ -115,6 +116,7 @@ export async function POST(req: NextRequest) {
     ]));
 
     const auditedFiles = (contextFiles || []).filter((f: any) => !isAutomatedTestFile(f.path));
+    const terrainMap = prepareAuditTerrain(auditedFiles.length > 0 ? auditedFiles : (contextFiles || []), projectName);
 
     if (!Array.isArray(findings) || findings.length === 0) {
       // Nenhuma vulnerabilidade: blueprint limpo aprovado
@@ -124,6 +126,7 @@ export async function POST(req: NextRequest) {
         findings: [],
         contents: [],
         existingTestPaths,
+        terrainMap,
       });
       return new NextResponse(md, { headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
     }
@@ -152,38 +155,38 @@ O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes autom
       : '';
 
     const prompt = `
-      Você é um Arquiteto e Engenheiro de Segurança de Software Principal especializado em Application Security, DevSecOps e Remediação de Vulnerabilidades.
+      Você é um Arquiteto de Segurança de Software Principal e Especialista em AppSec.
       
-      Gere um Blueprint de Correcção de Segurança EXTREMAMENTE DETALHADO, rigoroso e 100% pronto para produção para as vulnerabilidades identificadas.
+      Gere um Blueprint de Correcção de Segurança CIRÚRGICO, PRECISO, EFICIENTE e 100% pronto para produção para as vulnerabilidades identificadas.
       
       ${testContextDirective}
 
-      ESTRUTURA E DIRETRIZES DE QUALIDADE OBRIGATÓRIAS:
-      1. CÓDIGO 100% COMPLETO E PRESERVAÇÃO RIGOROSA:
-         - Todo código nos passos de implementação DEVE estar totalmente escrito, funcional e pronto para substituição direta ou criação do ficheiro.
-         - NUNCA use comentários de omissão como "// ... resto do código ...", "// TODO", "// adicione aqui", ou "// lógica existente".
-         - PRESERVAÇÃO DE CÓDIGO DE PRODUÇÃO: Em ficheiros existentes de UI/rotas (ex: formulários de cadastro, páginas, componentes), PRESERVE todos os campos de negócio (ex: bairro, whatsapp, bio, role, plano, campos adicionais, toasts, styling Tailwind). A segurança deve ser resolvida preferencialmente na raiz (migrações RLS, proxies de API, validação segura) sem apagar ou simplificar formulários reais para stubs didáticos.
-         - Se for uma migração SQL, escreva a migração completa com DROP/CREATE POLICY, triggers, funções RPC SECURITY DEFINER, grants, etc.
-         - Se for código TypeScript/Next.js/Node/Python, escreva todos os imports, tipagens, validações, handlers e retornos.
+      DIRETRIZES FUNDAMENTAIS DE ESCOPO CIRÚRGICO (ANTI-SOBRECARGA / SEM DESPERDÍCIO DE MEMÓRIA):
+      1. CÓDIGO CIRÚRGICO DA FUNÇÃO OU BLOCO ESPECÍFICO (NUNCA O ARQUIVO COMPLETO):
+         - Em "codigoActual": Mostre APENAS o trecho/função específico que contém a vulnerabilidade (5 a 25 linhas), com comentários pontuais indicando onde está o risco. NUNCA coloque páginas inteiras ou arquivos com centenas de linhas.
+         - Em "passos": Cada passo deve conter APENAS a função, método, RPC, SQL migration ou middleware específico corrigido (10 a 40 linhas).
+         - Se o problema estiver numa página/componente frontend (ex: 'app/cadastro/page.tsx', 'components/Form.tsx'), NÃO reescreva o arquivo page.tsx todo com imports, JSX e formulário inteiro! Mostre apenas o bloco do handler de erro, a função de validação ou a chamada corrigida.
+         - Se for uma migration SQL ou RPC de banco de dados (ex: 'supabase/19_register_payment_price_lock.sql'), mostre a função SQL / CREATE POLICY / CHECK constraint completa e autocontida.
+         - Se for um arquivo de utilitário (ex: 'lib/supabase.ts'), mostre apenas a função corrigida (ex: 'uploadProductImage') e eventuais helpers de apoio necessários (ex: 'validateImageMagicBytes').
+         - O código fornecido em cada passo deve ser 100% funcional, sem omissões internas desnecessárias.
 
       2. ARQUITECTURA DA CORRECÇÃO:
-         - Inclua um diagrama ASCII claro comparando:
+         - Inclua um diagrama ASCII conciso (4 a 8 linhas) comparando:
            SITUAÇÃO ACTUAL (vulnerável): fluxo e falha
            SITUAÇÃO CORRIGIDA: fluxo protegido e validações
 
       3. TESTES DE VALIDAÇÃO AUTOMATIZADOS:
-         - Forneça um conjunto de testes completo (ex: Vitest/Jest/Pytest) com describe/it cobrindo o cenário de ataque (que deve ser bloqueado) e o cenário legítimo (que deve passar).
+         - Forneça um teste de regressão focado e executável (Playwright, Vitest, Jest ou SQL) com 15 a 30 linhas cobrindo o bloqueio do ataque e a execução legítima.
          - Inclua o caminho do ficheiro de teste e o comando exato de execução no terminal.
 
       4. CONTEXTO E IMPACTO:
-         - Explique claramente o que existe actualmente, por que é explorável (com código de exemplo do ataque/payload se aplicável) e lista de impactos reais no negócio.
+         - Explique claramente o que existe actualmente, por que é explorável (com exemplo de chamada/payload quando relevante) e lista de impactos reais no negócio.
 
       5. REMEDIAÇÃO DE SECRETS E ROTAÇÃO OBRIGATÓRIA (R03a, R03b, R03c):
          - Para qualquer secret vazado (R03a/R03b/R03c), o Blueprint DEVE prescrever os 3 passos de remediação estrita:
-           (1) Revogação/Rotação imediata da credencial directamente no painel do provedor (Stripe, AWS IAM, Mercado Pago, Anthropic, MongoDB Atlas, etc.);
-           (2) Reescrever o histórico do Git (via git filter-repo ou BFG Repo-Cleaner) apenas após a rotação;
-           (3) Teste de validação que confirma que a credencial antiga retorna erro 401/403 e que a nova variável de ambiente está em uso seguro.
-           - Enfatize que limpar o Git sem rotação no provedor é cosmético e não elimina o comprometimento.
+           (1) Revogação/Rotação imediata da credencial directamente no painel do provedor (Stripe, AWS IAM, etc.);
+           (2) Substituição por placeholder inequívoco no .env.example;
+           (3) Teste de validação ou limpeza de histórico após a rotação.
 
       CÓDIGO-FONTE RELEVANTE AUDITADO:
       ${fileContext || '(baseie-se nas evidências e localizações fornecidas)'}
@@ -245,6 +248,7 @@ O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes autom
       findings: findings as ScoredFinding[],
       contents: verifiedContents,
       existingTestPaths,
+      terrainMap,
       globalContent: {
         checklistObrigatorio: parsed.checklistObrigatorio,
         checklistRecomendado: parsed.checklistRecomendado,

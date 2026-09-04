@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ANALYST_MODEL, FALLBACK_MODEL, getAIClient } from '@/server/gemini.service';
 import { jsonError, AppError } from '@/app/api/_utils';
 import { ruleCatalogAsPrompt, getRuleById, VALID_RULE_IDS } from '@/server/security/ruleset';
-import { computeScore, sortFindingsBySeverity, ScoredFinding } from '@/server/security/scoring';
+import { computeScore, sortFindingsBySeverity, ScoredFinding, extractTopCriticalRemediations } from '@/server/security/scoring';
 import { scanFilesWithSAST } from '@/server/security/sast-scanner';
 import { DeepSeekHarnessEngine } from '@/server/agent/harness';
 import { isAutomatedTestFile } from '@/utils/file-selection';
+import { prepareAuditTerrain, formatTerrainMapForPrompt } from '@/server/security/ground-preparation';
 import { AgentTrace } from '@/types';
 
 export const runtime = 'nodejs';
@@ -55,6 +56,10 @@ export async function POST(req: NextRequest) {
       auditedFiles.push(...contextFiles);
     }
 
+    // Etapa 1 da Auditoria (E-book Vibe Coding): Preparar o Terreno Mapeando os 6 Eixos Fundamentais
+    const terrainMap = prepareAuditTerrain(auditedFiles, projectName);
+    const terrainPromptSection = formatTerrainMapForPrompt(terrainMap);
+
     // 1. Varredura estática determinística de alta precisão para as 36 regras (R01-R28 + CTF-R01-R11)
     const deterministicSASTFindings = scanFilesWithSAST(auditedFiles);
 
@@ -70,13 +75,14 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       : `Nenhum arquivo de teste automatizado identificado no escopo auditado.`;
 
     const prompt = `
-      Você é um auditor de segurança de código sénior. Analise o código abaixo
-      EXCLUSIVAMENTE contra o catálogo de regras fornecido. Não invente regras
-      novas nem severidades — use apenas os IDs do catálogo.
+      Você é um auditor de segurança de código sénior seguindo rigorosamente a metodologia de 7 etapas da Auditoria de Segurança para Vibe Coding.
+      Analise o código abaixo EXCLUSIVAMENTE contra o catálogo de regras fornecido. Não invente regras novas nem severidades — use apenas os IDs do catálogo.
+
+      ${terrainPromptSection}
 
       ${testContextNote}
 
-      CATÁLOGO DE REGRAS:
+      CATÁLOGO DE REGRAS POR ETAPAS (Etapas 2 a 7):
       ${ruleCatalogAsPrompt()}
 
       DIRETRIZES ESPECÍFICAS PARA SECRETS (R03a, R03b, R03c):
@@ -219,6 +225,8 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       durationMs: 95,
     });
 
+    const topCriticalRemediations = extractTopCriticalRemediations(combinedFindings);
+
     return NextResponse.json({
       projectName: projectName || 'Projecto sem nome',
       date: new Date().toISOString(),
@@ -229,6 +237,8 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       classificationLabel: scoreResult.classificationLabel,
       existingTestPaths,
       detectedAutomatedTestsCount: existingTestPaths.length,
+      terrainMap,
+      topCriticalRemediations,
       ...(invalidRuleIds.length > 0 ? { discardedInvalidRules: invalidRuleIds } : {}),
       harnessTraces,
       harnessToolsUsed: toolsUsed,

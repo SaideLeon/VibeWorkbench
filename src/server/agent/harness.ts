@@ -9,6 +9,7 @@ import {
 import { RULESET } from '@/server/security/ruleset';
 import { scanFileForSecrets } from '@/server/security/secrets-scanner';
 import { sanitizeUnifiedDiff } from '@/utils/patch-sanitizer';
+import { prepareAuditTerrain } from '@/server/security/ground-preparation';
 
 /**
  * DeepSeek-Harness Engine
@@ -33,6 +34,34 @@ export class DeepSeekHarnessEngine {
   }
 
   private registerDefaultTools() {
+    // 0. Tool: tool_prepare_terrain (Etapa 1: Preparar o Terreno da Auditoria — E-book Vibe Coding)
+    this.registerTool({
+      name: 'tool_prepare_terrain',
+      description: 'Executa a Etapa 1 da Auditoria (E-book Vibe Coding): mapeia os 6 eixos críticos do repositório (Autenticação, Autorização, Banco de Dados, Financeiro, Uploads, Secrets) para estabelecer o mapa de superfície de ataque antes de procurar falhas.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+      handler: async (args, context) => {
+        const terrain = prepareAuditTerrain(context.files, context.repoName);
+        return {
+          stage: 'Etapa 1: Preparar o Terreno da Auditoria',
+          totalFilesAnalyzed: terrain.totalFilesAnalyzed,
+          coveredAxesCount: terrain.coveredAxesCount,
+          axesSummary: {
+            autenticacao: { exists: terrain.axes.autenticacao.exists, count: terrain.axes.autenticacao.fileCount, sample: terrain.axes.autenticacao.files.slice(0, 5) },
+            autorizacao: { exists: terrain.axes.autorizacao.exists, count: terrain.axes.autorizacao.fileCount, sample: terrain.axes.autorizacao.files.slice(0, 5) },
+            bancoDeDados: { exists: terrain.axes.bancoDeDados.exists, count: terrain.axes.bancoDeDados.fileCount, sample: terrain.axes.bancoDeDados.files.slice(0, 5) },
+            financeiro: { exists: terrain.axes.financeiro.exists, count: terrain.axes.financeiro.fileCount, sample: terrain.axes.financeiro.files.slice(0, 5) },
+            uploads: { exists: terrain.axes.uploads.exists, count: terrain.axes.uploads.fileCount, sample: terrain.axes.uploads.files.slice(0, 5) },
+            secrets: { exists: terrain.axes.secrets.exists, count: terrain.axes.secrets.fileCount, sample: terrain.axes.secrets.files.slice(0, 5) },
+          },
+          summary: terrain.summary,
+        };
+      },
+    });
+
     // 1. Tool: tool_scan_ast (SAST & Secrets Scanner)
     this.registerTool({
       name: 'tool_scan_ast',
