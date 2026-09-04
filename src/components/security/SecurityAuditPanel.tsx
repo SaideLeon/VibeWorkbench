@@ -24,7 +24,6 @@ import {
   Wrench,
   Zap,
   Activity,
-  Scan,
   Compass
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
@@ -334,15 +333,8 @@ export const SecurityAuditPanel = ({
       <div className="p-3 md:p-4 border-b border-white/10 bg-[#151515] flex items-center justify-between shrink-0 flex-wrap gap-2">
         {isAuditing ? (
           <div className="flex items-center gap-3 min-w-0">
-            <div className="relative flex items-center justify-center w-7 h-7 rounded-lg bg-indigo-600/20 border border-indigo-500/40 text-indigo-400 shrink-0">
-              <Scan className="w-4 h-4 animate-spin" style={{ animationDuration: '4s' }} />
-              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full border-2 border-[#151515] animate-pulse" />
-            </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-semibold text-sm text-white uppercase tracking-wider">
-                  Varredura AST de Segurança em Tempo Real
-                </h3>
                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono shadow-sm">
                   <BrainCircuit className="w-3 h-3 text-indigo-400 animate-pulse" />
                   <span>DeepSeek-Harness AST</span>
