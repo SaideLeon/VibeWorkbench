@@ -78,19 +78,18 @@ export function renderSecurityBlueprint(params: {
     .map((f, i) => {
       const content = paired[f.__pairIndex].content;
       const rule = getRuleById(f.rule);
-      const title = sanitizeCell(content?.titulo || rule?.name || f.description);
+      const rawTitle = content?.titulo || rule?.name || f.description;
+      const title = sanitizeCell(rawTitle.replace(/^\[(R\d+[a-z]?|CTF-R\d+)\]\s*/i, ''));
       const location = sanitizeCell(f.location);
       const effort = sanitizeCell(content?.esforco || (f.severity === 'CRITICO' ? 'Médio (2–4h)' : f.severity === 'ALTO' ? 'Baixo (1–2h)' : 'Baixo (< 1h)'));
-      return `| ${i + 1} | [${f.rule}] ${title} | ${SEVERITY_EMOJI_LABEL[f.severity]} | \`${location}\` | ${effort} | ⬜ Pendente |`;
+      return `| ${i + 1} | [SEC-${String(i + 1).padStart(2, '0')}] ${title} | ${SEVERITY_EMOJI_LABEL[f.severity]} | \`${location}\` | ${effort} | ⬜ Pendente |`;
     })
     .join('\n');
 
-  // Mapa do Terreno (Etapa 1 do E-book)
+  // Mapa do Terreno da Superfície de Ataque
   let terrainSection = '';
   if (terrainMap) {
-    terrainSection = `## 🗺️ Etapa 1: Mapa do Terreno da Auditoria
-
-> **Diretriz da Etapa 1 (E-book Vibe Coding):** *"Antes de procurar falhas, reúna o que precisa estar na mesa. Auditar sem contexto é chutar."*
+    terrainSection = `## 🗺️ Mapeamento da Superfície de Ataque
 
 | Eixo Crítico | Status | Ficheiros Identificados | Descrição da Superfície |
 |---|---|---|---|
@@ -107,14 +106,12 @@ export function renderSecurityBlueprint(params: {
 `;
   }
 
-  // Exercício 7: Plano de Ação Imediato
+  // Plano de Ação Imediato
   let exercise7Section = '';
   if (topCriticals.length > 0) {
-    exercise7Section = `## ⚡ Exercício 7: Plano de Ação Imediato (Top 3 Correções Críticas)
+    exercise7Section = `## ⚡ Plano de Ação Imediato (Correções Críticas Prioritárias)
 
-> **Regra de Ouro (E-book Vibe Coding):** *"Junte o que você marcou nos exercícios 2 a 6. Calcule seu score. Depois, liste as três correções de prioridade crítica que você vai implementar primeiro. Esse é o seu plano de ação imediato."*
-
-${topCriticals.map((tc, idx) => `### ${idx + 1}. [${tc.rule}] em \`${tc.location}\`
+${topCriticals.map((tc, idx) => `### ${idx + 1}. ${tc.name} em \`${tc.location}\`
 - **Falha:** ${tc.name}
 - **Ação Imediata:** ${tc.action}
 `).join('\n')}
@@ -125,10 +122,11 @@ ${topCriticals.map((tc, idx) => `### ${idx + 1}. [${tc.rule}] em \`${tc.location
 
   // Blocos detalhados por vulnerabilidade
   const vulnBlocks = ordered
-    .map((f) => {
+    .map((f, i) => {
       const rule = getRuleById(f.rule);
       const content = paired[f.__pairIndex].content;
-      const ruleName = content?.titulo || rule?.name || 'Vulnerabilidade Identificada';
+      const rawName = content?.titulo || rule?.name || 'Vulnerabilidade Identificada';
+      const ruleName = rawName.replace(/^\[(R\d+[a-z]?|CTF-R\d+)\]\s*/i, '');
 
       // Impacto formatado em bullets se for string ou array
       let impactoFormatted = '';
@@ -140,7 +138,7 @@ ${topCriticals.map((tc, idx) => `### ${idx + 1}. [${tc.rule}] em \`${tc.location
           .map((line) => (line.trim().startsWith('-') ? line : `- ${line}`))
           .join('\n');
       } else {
-        impactoFormatted = `- Exposição a risco de segurança na regra ${f.rule}\n- Potencial comprometimento de integridade ou confidencialidade`;
+        impactoFormatted = `- Exposição a risco de segurança na integridade do fluxo\n- Potencial comprometimento de dados ou execução não autorizada`;
       }
 
       // Passos de implementação com código completo
@@ -162,11 +160,11 @@ ${p.comentario ? `// ${p.comentario}\n` : ''}${p.codigo}
       // Checklist de deploy específico
       const defaultChecklist = [
         `Correcção aplicada e verificada em \`${f.location}\``,
-        `Testes automatizados de segurança a passar para [${f.rule}]`,
+        `Testes automatizados de segurança a passar com sucesso`,
         `Revisão de código por par antes do merge`,
       ];
       const checklistItems = content?.checklist && content.checklist.length > 0 ? content.checklist : defaultChecklist;
-      const checklistMd = checklistItems.map((item) => `- [ ] ${item}`).join('\n');
+      const checklistMd = checklistItems.map((item) => `- [ ] ${item.replace(/\[(R\d+[a-z]?|CTF-R\d+)\]/gi, 'as validações')}`).join('\n');
 
       // Código actual / evidência
       const currentCode = content?.codigoActual || f.evidence || `// Trecho identificado em: ${f.location}`;
@@ -176,21 +174,21 @@ ${p.comentario ? `// ${p.comentario}\n` : ''}${p.codigo}
       const testLang = content?.teste?.linguagem || 'typescript';
       const testFileHeader = content?.teste?.caminhoFicheiro ? `// ${content.teste.caminhoFicheiro}\n` : '';
       const testCmd = content?.teste?.comando ? `// Executar com: ${content.teste.comando}\n\n` : '';
-      const testCode = content?.teste?.codigo || `describe('${f.rule} — Validação de Segurança', () => {\n  it('garante que a vulnerabilidade está corrigida', async () => {\n    // Verificação automatizada\n    expect(true).toBe(true);\n  });\n});`;
+      const testCode = content?.teste?.codigo || `describe('${ruleName} — Validação de Segurança', () => {\n  it('garante que a vulnerabilidade está corrigida e o ataque bloqueado', async () => {\n    // Verificação automatizada\n    expect(true).toBe(true);\n  });\n});`;
 
       return `---
 
-## [${f.rule}] ${ruleName} — ${SEVERITY_EMOJI_LABEL[f.severity]}
+## [SEC-${String(i + 1).padStart(2, '0')}] ${ruleName} — ${SEVERITY_EMOJI_LABEL[f.severity]}
 
-### Contexto
+### Contexto & Vetor de Exploração
 
-**O que existe actualmente:**
+**Trecho vulnerável identificado:**
 
 \`\`\`${currentLang}
 ${currentCode}
 \`\`\`
 
-**Por que é explorável:**
+**Como o invasor pode explorar esta falha:**
 
 ${content?.porQueExploravel || f.description}
 
@@ -231,7 +229,7 @@ ${checklistMd}
   const mandatoryItems =
     globalContent?.checklistObrigatorio ||
     (criticalAndHighRules.length > 0
-      ? criticalAndHighRules.map((f) => `**[${f.rule}]** Correcção aplicada e validada em \`${f.location}\``)
+      ? criticalAndHighRules.map((f) => `Correcção aplicada e validada em \`${f.location}\``)
       : ['Todos os pontos críticos auditados e verificados'])
         .concat([testSuiteText, 'Variáveis de ambiente e secrets verificados fora do repositório']);
 
@@ -263,11 +261,11 @@ ${checklistMd}
 
 **Projecto:** ${projectName}  
 **Data da auditoria:** ${date}  
-**Auditado por:** Mitigar IA Security Audit Skill v1.0 (Metodologia E-book Vibe Coding — 7 Etapas)  
+**Auditado por:** Mitigar IA Security Engine  
 ${testSuiteHeader}
 ---
 
-${terrainSection}## Score de Segurança (Etapa 7)
+${terrainSection}## Score de Segurança
 
 | Métrica | Valor |
 |---------|-------|
@@ -282,8 +280,8 @@ ${terrainSection}## Score de Segurança (Etapa 7)
 
 ${exercise7Section}## Índice de Vulnerabilidades
 
-| # | Regra | Severidade | Localização | Esforço | Status |
-|---|-------|-----------|-------------|---------|--------|
+| # | Vulnerabilidade | Severidade | Localização | Esforço | Status |
+|---|-----------------|------------|-------------|---------|--------|
 ${indiceRows || '| - | - | - | - | - | ⬜ Nenhuma vulnerabilidade |'}
 
 > **Esforço:** Baixo (< 1h) · Médio (1–4h) · Alto (> 4h)
@@ -310,7 +308,6 @@ ${refsRows}
 
 ---
 
-_Blueprint gerado automaticamente pela Security Audit Skill v1.0_  
-_Baseado em: Relatório CTF v1.0 + Plataforma de Análise de Segurança de Código v1.0_
+_Blueprint gerado automaticamente pelo Mitigar IA Security Engine_
 `;
 }

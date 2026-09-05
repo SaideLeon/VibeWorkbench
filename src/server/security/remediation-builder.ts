@@ -554,7 +554,7 @@ Painel do Provedor (Revogar/Rotacionar) ---> .env / Secrets Manager ---> process
   }
 
   return `SITUAÇÃO ACTUAL:
-[Cliente] ---> [${location} sem validação ${ruleId}] ---> [Vulnerabilidade Explorável]
+[Cliente] ---> [${location} sem validação estrita] ---> [Vulnerabilidade Explorável]
 
 SITUAÇÃO CORRIGIDA:
 [Cliente] ---> [Validação Server-Side & Controle de Acesso] ---> [Execução Segura em ${location}]`;
@@ -620,15 +620,17 @@ export function ensureCompleteBlueprintItems(
       };
     }
 
+    const fallbackRuleName = getRuleById(f.rule)?.name || 'Vulnerabilidade Identificada';
+
     return {
       index: idx,
-      titulo: existing?.titulo || `[${f.rule}] em ${targetFile || f.location}`,
+      titulo: existing?.titulo || `${fallbackRuleName} em ${targetFile || f.location}`,
       codigoActual: existing?.codigoActual || f.evidence || `// Código vulnerável em: ${f.location}`,
       codigoActualLinguagem: existing?.codigoActualLinguagem || (targetFile.endsWith('.sql') ? 'sql' : targetFile.endsWith('.py') ? 'python' : 'typescript'),
-      porQueExploravel: existing?.porQueExploravel || f.description || `Vulnerabilidade na regra de segurança ${f.rule}.`,
+      porQueExploravel: existing?.porQueExploravel || f.description || `Falha de segurança identificada em ${targetFile || f.location}.`,
       impacto: existing?.impacto && (Array.isArray(existing.impacto) ? existing.impacto.length > 0 : existing.impacto.length > 5)
         ? existing.impacto
-        : [`Risco de exploração na regra ${f.rule} em ${f.location}`, 'Potencial degradação de segurança ou exposição de recursos'],
+        : [`Risco de exploração em ${f.location}`, 'Potencial degradação de segurança ou exposição de recursos'],
       diagrama: existing?.diagrama || asciiDiagram,
       passos: finalSteps,
       teste: finalTest,
@@ -636,7 +638,7 @@ export function ensureCompleteBlueprintItems(
         ? existing.checklist
         : [
             `Correcção aplicada na função correspondente em \`${targetFile || f.location}\``,
-            `Testes automatizados a passar para [${f.rule}]`,
+            `Testes automatizados de validação a passar com sucesso`,
             `Revisão de código por par antes do merge`,
           ],
       esforco: existing?.esforco || (f.severity === 'CRITICO' ? 'Médio (2h)' : 'Baixo (< 30min)'),

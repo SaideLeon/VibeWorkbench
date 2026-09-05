@@ -230,7 +230,7 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
             stepIndex: 1,
             timestamp: Date.now() - 500,
             type: 'tool_call',
-            content: `tool_scan_ast executada com sucesso contra o catálogo de 36 regras (R01-R28 + CTF-R01-R11).`,
+            content: `tool_scan_ast executada com sucesso na análise de vulnerabilidades do código.`,
             toolName: 'tool_scan_ast',
             toolArgs: { totalFiles: contextFiles.length },
             durationMs: 250,
@@ -290,7 +290,7 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
           terrainMap,
           globalContent: {
             checklistObrigatorio: [
-              'Aplicar correções críticas em todos os pontos apontados (R01-R28)',
+              'Aplicar correções críticas em todos os pontos identificados na auditoria',
               existingTestPaths.length > 0
                 ? `Integrar testes de regressão de segurança à suíte de testes existente do projeto (${existingTestPaths.length} arquivos de teste)`
                 : 'Rodar suite completa de testes de segurança automatizados',
@@ -335,7 +335,9 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
 
               ${existingTestPaths.length > 0 ? `NOTA: O projeto já possui ${existingTestPaths.length} arquivos de testes automatizados. Os testes devem complementar a suíte existente.` : ''}
 
-              DIRETRIZES DE ESCOPO CIRÚRGICO (SEM SOBRECARGA DE MEMÓRIA):
+              DIRETRIZES DE ESCOPO CIRÚRGICO & ANTI-DESTILAÇÃO:
+              - Explique detalhadamente a falha técnica e EXATAMENTE COMO o invasor pode explorá-la ou hackear a aplicação.
+              - NÃO mencione códigos internos de regras (R01-R28, etc.) ou catálogo do motor. Foque apenas na vulnerabilidade do código e na resolução.
               - Em "codigoActual": Mostre APENAS o trecho/função vulnerável (5 a 20 linhas). NUNCA o arquivo inteiro.
               - Em "passos": Cada passo DEVE conter APENAS a função, método, RPC, SQL query ou middleware específico corrigido (10 a 35 linhas). NUNCA reescreva páginas inteiras como page.tsx ou componentes inteiros.
               - Em "diagrama": Diagrama ASCII conciso (4 a 6 linhas).
@@ -345,7 +347,7 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
               ${relevantFileContext}
 
               VULNERABILIDADES:
-              ${combinedFindings.slice(0, 15).map((f, i) => `[#${i}] Regra: ${f.rule}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
+              ${combinedFindings.slice(0, 15).map((f, i) => `[#${i + 1}] Falha: ${getRuleById(f.rule)?.name || 'Vulnerabilidade'}, Local: ${f.location}, Desc: ${f.description}`).join('\n')}
 
               Responda em JSON rigoroso com a estrutura:
               {

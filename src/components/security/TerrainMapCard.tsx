@@ -57,7 +57,7 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Header Banner: Etapa 1 E-book */}
+      {/* Header Banner: Superfície de Ataque */}
       <div className="bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-indigo-950/40 border border-indigo-500/30 rounded-xl p-4 shadow-md">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start sm:items-center gap-3">
@@ -67,14 +67,14 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-white tracking-wide">
-                  Etapa 1: Preparar o Terreno da Auditoria
+                  Mapeamento da Superfície de Ataque
                 </h3>
                 <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-medium border border-indigo-500/30">
                   {terrainMap.coveredAxesCount} de 6 Eixos Mapeados
                 </span>
               </div>
               <p className="text-xs text-gray-300 mt-0.5 leading-relaxed">
-                Mapeamento estrutural dos 6 eixos de maior risco antes do scan profundo, garantindo cobertura total sem tokens desperdiçados.
+                Mapeamento estrutural dos 6 eixos críticos de exposição antes do scan profundo, garantindo cobertura total de segurança.
               </p>
             </div>
           </div>
@@ -92,7 +92,7 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
         </div>
       </div>
 
-      {/* 6 Eixos Fundamentais do E-book */}
+      {/* 6 Eixos Fundamentais */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
@@ -100,7 +100,7 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
             <span>Os 6 Eixos Fundamentais Mapeados</span>
           </h4>
           <span className="text-[11px] text-gray-500">
-            Metodologia E-book Vibe Coding
+            Arquitetura de Defesa Mitigar
           </span>
         </div>
 
@@ -179,16 +179,16 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
         </div>
       </div>
 
-      {/* Top 3 Ações Críticas Imediatas (Etapa 7 / Exercício 7 do E-book) */}
+      {/* Top Ações Críticas Imediatas */}
       {topCriticalRemediations && topCriticalRemediations.length > 0 && (
         <div className="bg-[#151515] border border-red-500/20 rounded-xl p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h4 className="text-xs font-bold text-red-400 uppercase tracking-wider flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-red-400" />
-              <span>Etapa 7: Plano de Ação Imediato (Top {topCriticalRemediations.length} Prioridades Críticas)</span>
+              <span>Plano de Ação Imediato (Top {topCriticalRemediations.length} Prioridades Críticas)</span>
             </h4>
             <span className="text-[10px] bg-red-500/15 text-red-300 px-2 py-0.5 rounded border border-red-500/30 font-semibold">
-              Exercício 7 do E-book
+              Remediação Crítica
             </span>
           </div>
 
@@ -204,7 +204,7 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
                       Prioridade #{idx + 1}
                     </span>
                     <span className="text-[10px] font-mono text-gray-400">
-                      {item.rule}
+                      SEC-{String(idx + 1).padStart(2, '0')}
                     </span>
                   </div>
 
@@ -228,11 +228,11 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
         </div>
       )}
 
-      {/* As 7 Etapas da Auditoria de Segurança para Vibe Coding */}
+      {/* Pilares de Segurança em Profundidade */}
       <div className="bg-[#141414] border border-white/10 rounded-xl p-4 space-y-3">
         <h4 className="text-xs font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-          <span>Pipeline de 7 Etapas do E-book</span>
+          <span>Pilares de Segurança em Profundidade</span>
         </h4>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
@@ -245,7 +245,7 @@ export const TerrainMapCard: React.FC<TerrainMapCardProps> = ({
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wide">
-                      Etapa {stg.stageNumber}
+                      Pilar {stg.stageNumber}
                     </span>
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   </div>

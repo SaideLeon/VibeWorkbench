@@ -185,9 +185,9 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       stepIndex: 1,
       timestamp: Date.now() - 950,
       type: 'tool_call',
-      content: `Invocando plugin AST 'tool_scan_ast' para varredura estática de padrões de segurança e chaves vivas em todos os arquivos em escopo.`,
+      content: `Invocando plugin AST 'tool_scan_ast' para varredura estática de vulnerabilidades e credenciais vivas em todos os arquivos em escopo.`,
       toolName: 'tool_scan_ast',
-      toolArgs: { totalFiles: contextFiles.length, rulesetScope: 'R01-R28 + 18 Provedores' },
+      toolArgs: { totalFiles: contextFiles.length, mode: 'deep_scan' },
       durationMs: 280,
     });
 
@@ -212,7 +212,7 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       stepIndex: 3,
       timestamp: Date.now() - 400,
       type: 'thought',
-      content: `Avaliando criticidade e impacto das regras violadas: ${combinedFindings.map(f => f.rule).slice(0, 5).join(', ')}${combinedFindings.length > 5 ? '...' : ''}. Preparando síntese para blueprint de remediação imediata com foco em isolamento de secrets e correções cirúrgicas sem quebra de fluxo.`,
+      content: `Avaliando criticidade, impacto e vetores de exploração das ${combinedFindings.length} vulnerabilidade(s) identificada(s). Preparando síntese para blueprint de remediação imediata com foco em isolamento de credenciais, correções cirúrgicas e testes de regressão.`,
       durationMs: 210,
     });
 

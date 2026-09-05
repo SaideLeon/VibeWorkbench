@@ -138,8 +138,8 @@ export async function POST(req: NextRequest) {
 
     const findingsForPrompt = (findings as ScoredFinding[]).map((f, i) => {
       const rule = getRuleById(f.rule);
-      return `[VULNERABILIDADE #${i}]
-Regra: ${f.rule} (${rule?.name || 'Regra de Segurança'})
+      return `[VULNERABILIDADE #${i + 1}]
+Vulnerabilidade: ${rule?.name || 'Falha de Segurança'}
 Severidade: ${f.severity}
 Localização: ${f.location}
 Descrição da Auditoria: ${f.description}
@@ -179,11 +179,15 @@ O repositório JÁ POSSUI ${existingTestPaths.length} arquivo(s) de testes autom
          - Forneça um teste de regressão focado e executável (Playwright, Vitest, Jest ou SQL) com 15 a 30 linhas cobrindo o bloqueio do ataque e a execução legítima.
          - Inclua o caminho do ficheiro de teste e o comando exato de execução no terminal.
 
-      4. CONTEXTO E IMPACTO:
-         - Explique claramente o que existe actualmente, por que é explorável (com exemplo de chamada/payload quando relevante) e lista de impactos reais no negócio.
+      4. CONTEXTO E VETOR DE EXPLORAÇÃO:
+         - Explique com clareza cristalina e riqueza de detalhes técnicos A FALHA e EXATAMENTE COMO O INVASOR PODE HACKEAR OU EXPLORAR O CÓDIGO (cenário de ataque, chamadas maliciosas, payloads, bypass de controles) e o impacto operacional e comercial real.
 
-      5. REMEDIAÇÃO DE SECRETS E ROTAÇÃO OBRIGATÓRIA (R03a, R03b, R03c):
-         - Para qualquer secret vazado (R03a/R03b/R03c), o Blueprint DEVE prescrever os 3 passos de remediação estrita:
+      5. PROTEÇÃO DE ENGENHARIA E REGRAS INTERNAS (ANTI-DESTILAÇÃO):
+         - NUNCA mencione códigos internos de regras (como R01-R28, CTF-R01, etc.), catálogo de regras de negócio ou heurísticas de análise. Use títulos técnicos objetivos para a falha (ex: "Injeção de SQL na Consulta de Usuário").
+         - NÃO cite metodologias proprietárias, e-books ou regras do motor. Concentre-se 100% na entrega prática da solução para o código vulnerável.
+
+      6. REMEDIAÇÃO DE SECRETS E ROTAÇÃO OBRIGATÓRIA:
+         - Para qualquer secret ou credencial exposta, o Blueprint DEVE prescrever os 3 passos de remediação estrita:
            (1) Revogação/Rotação imediata da credencial directamente no painel do provedor (Stripe, AWS IAM, etc.);
            (2) Substituição por placeholder inequívoco no .env.example;
            (3) Teste de validação ou limpeza de histórico após a rotação.

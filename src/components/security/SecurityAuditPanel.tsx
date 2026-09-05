@@ -664,9 +664,9 @@ export const SecurityAuditPanel = ({
                 )}
               >
                 <Compass className="w-3.5 h-3.5 text-blue-400" />
-                <span>🗺️ Terreno & Etapas (1-7)</span>
+                <span>🗺️ Superfície de Ataque</span>
                 <span className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded-full hidden sm:inline">
-                  E-book
+                  Arquitetura
                 </span>
               </button>
 
@@ -1055,7 +1055,7 @@ export const SecurityAuditPanel = ({
                         <div key={i} className="bg-[#151515] border border-white/10 rounded-xl p-3.5 hover:border-white/20 transition-all">
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                             <span className={cn("text-[10px] font-semibold px-2.5 py-0.5 rounded-full border", style.badge)}>
-                              {style.label} · {f.rule}
+                              {style.label} · SEC-{String(i + 1).padStart(2, '0')}
                             </span>
                             <div className="flex items-center gap-1.5 max-w-[60%]">
                               <span 
