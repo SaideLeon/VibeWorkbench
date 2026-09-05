@@ -40,6 +40,9 @@ import { HistoryLeakItem, HistoryAuditSummary } from '@/hooks/useGitHistoryAudit
 import { ReasoningTracePanel } from '@/components/ai-chat/ReasoningTracePanel';
 import { LiveAuditCodeScanner } from './LiveAuditCodeScanner';
 import { TerrainMapCard } from './TerrainMapCard';
+import { BlueprintHistoryModal } from './BlueprintHistoryModal';
+import { useBlueprintHistory } from '@/hooks/useBlueprintHistory';
+import { StoredBlueprint } from '@/services/security';
 
 const SEVERITY_STYLES: Record<SecuritySeverity, { badge: string; dot: string; label: string }> = {
   CRITICO: { badge: 'bg-red-500/10 text-red-400 border-red-500/30', dot: 'bg-red-500', label: '🔴 CRÍTICO' },
@@ -136,6 +139,7 @@ interface SecurityAuditPanelProps {
   historyAuditError?: string | null;
   onRunHistoryAudit?: (maxCommits?: number) => void;
   onSelectCommitForRollback?: (sha: string) => void;
+  onRestoreBlueprint?: (blueprint: StoredBlueprint) => void;
 }
 
 export const SecurityAuditPanel = ({
@@ -174,6 +178,7 @@ export const SecurityAuditPanel = ({
   historyAuditError = null,
   onRunHistoryAudit,
   onSelectCommitForRollback,
+  onRestoreBlueprint,
 }: SecurityAuditPanelProps) => {
   const [activeTab, setActiveTab] = useState<'blueprint' | 'patch' | 'terrain' | 'findings' | 'history' | 'reasoning'>('blueprint');
   const [selectedFileFilter, setSelectedFileFilter] = useState<string>('ALL');
@@ -184,6 +189,24 @@ export const SecurityAuditPanel = ({
   const [localPatch, setLocalPatch] = useState<string | null>(patchContent || null);
   const [isLoadingLocalPatch, setIsLoadingLocalPatch] = useState(false);
   const [isCompilingLocalBlueprint, setIsCompilingLocalBlueprint] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+
+  // Hook de histórico dos últimos 5 blueprints salvos (Supabase / local)
+  const projectIdentifier = owner && repo ? `${owner}/${repo}` : undefined;
+  const {
+    blueprints,
+    isLoading: isLoadingHistory,
+    isSupabaseOnline,
+    refreshHistory,
+    removeBlueprint,
+  } = useBlueprintHistory(undefined, projectIdentifier);
+
+  const handleRestoreBlueprintItem = (item: StoredBlueprint) => {
+    if (onRestoreBlueprint) {
+      onRestoreBlueprint(item);
+    }
+    setActiveTab('blueprint');
+  };
 
   // Auto-compilação defensiva se a aba Blueprint for acessada sem conteúdo
   useEffect(() => {
@@ -349,6 +372,23 @@ export const SecurityAuditPanel = ({
         )}
 
         <div className="flex items-center gap-2">
+          {/* Botão de Histórico dos Últimos 5 Blueprints (Supabase) */}
+          <button
+            type="button"
+            onClick={() => {
+              refreshHistory();
+              setIsHistoryModalOpen(true);
+            }}
+            className="px-2.5 py-1.5 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+            title="Acessar histórico dos últimos 5 blueprints gerados (Supabase)"
+          >
+            <History className="w-3.5 h-3.5 text-indigo-400" />
+            <span className="hidden sm:inline">Histórico Blueprints</span>
+            <span className="text-[10px] bg-indigo-500/25 px-1.5 py-0.2 rounded-full font-mono font-bold text-indigo-200">
+              {blueprints.length}/5
+            </span>
+          </button>
+
           <button
             onClick={onToggleMaximize}
             className="p-1 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white cursor-pointer"
@@ -460,8 +500,8 @@ export const SecurityAuditPanel = ({
         )}
 
         {/* Initial Empty State */}
-        {!auditResult && !isAuditing && !auditError && (
-          <div className="bg-[#151515] border border-white/10 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-3 text-gray-400">
+        {!auditResult && !blueprintMarkdown && !isAuditing && !auditError && (
+          <div className="bg-[#151515] border border-white/10 rounded-xl p-8 flex flex-col items-center justify-center text-center gap-4 text-gray-400">
             <ShieldAlert className="w-12 h-12 text-indigo-400/60" />
             <div className="max-w-md space-y-1.5">
               <h4 className="text-base font-semibold text-gray-200">Auditoria & Blueprint Unificados</h4>
@@ -469,6 +509,33 @@ export const SecurityAuditPanel = ({
                 Ao auditar os arquivos, o sistema gera <strong className="text-indigo-300">automaticamente no mesmo instante o Blueprint de Correcção</strong>, contendo todas as resoluções com código completo e pronto para copiar e colar diretamente no projeto.
               </p>
             </div>
+
+            {/* Atalho para recuperar blueprints do histórico */}
+            {blueprints.length > 0 && (
+              <div className="p-3.5 rounded-xl bg-indigo-950/30 border border-indigo-500/30 max-w-md w-full text-left space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-indigo-200 flex items-center gap-1.5">
+                    <History className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>{blueprints.length} Blueprint(s) no Histórico</span>
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono">Últimos 5 retidos</span>
+                </div>
+                <p className="text-[11px] text-gray-300">
+                  Você possui blueprints salvos anteriormente no banco de dados Supabase prontos para recuperação imediata.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    refreshHistory();
+                    setIsHistoryModalOpen(true);
+                  }}
+                  className="w-full py-1.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                >
+                  <History className="w-3.5 h-3.5" />
+                  <span>Ver e Recuperar Blueprints Arquivados</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -547,7 +614,7 @@ export const SecurityAuditPanel = ({
             )}
 
             {/* Primary Action Buttons */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2">
               <button
                 onClick={() => onRunAudit('selected')}
                 disabled={isAuditing}
@@ -555,6 +622,18 @@ export const SecurityAuditPanel = ({
               >
                 {isAuditing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
                 Reauditar
+              </button>
+
+              <button
+                onClick={() => {
+                  refreshHistory();
+                  setIsHistoryModalOpen(true);
+                }}
+                className="text-xs bg-indigo-950/40 hover:bg-indigo-900/50 text-indigo-200 border border-indigo-500/30 rounded-lg px-3 py-2 flex items-center justify-center gap-2 font-medium transition-colors cursor-pointer shadow-sm"
+                title="Histórico dos últimos 5 blueprints salvos"
+              >
+                <History className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Histórico ({blueprints.length}/5)</span>
               </button>
 
               <button
@@ -1118,6 +1197,17 @@ export const SecurityAuditPanel = ({
           </>
         )}
       </div>
+
+      {/* Modal Histórico dos Últimos 5 Blueprints (Supabase) */}
+      <BlueprintHistoryModal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        blueprints={blueprints}
+        isLoading={isLoadingHistory}
+        isSupabaseOnline={isSupabaseOnline}
+        onRestoreBlueprint={handleRestoreBlueprintItem}
+        onDeleteBlueprint={removeBlueprint}
+      />
     </div>
   );
 };

@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Settings, Upload, Key, Maximize, Minimize, Github, Trash2, Plus, Zap, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Settings, Upload, Key, Maximize, Minimize, Github, Trash2, Plus, Zap, CheckCircle2, ShieldCheck, Sparkles, Terminal, CreditCard, QrCode } from 'lucide-react';
 import { Modal } from '@/components/ui/Modal';
 import { AppLogo } from '@/components/ui/AppLogo';
+import { useUserSubscription } from '@/hooks/useUserSubscription';
+import { CaktoWebhookSimulatorModal } from '@/components/billing/CaktoWebhookSimulatorModal';
 
 interface HeaderProps {
   apiKeys: string[];
@@ -25,6 +27,7 @@ export const Header = ({
   onLogoClick 
 }: HeaderProps) => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadStatus, setUploadStatus] = useState<string | null>(null);
@@ -32,6 +35,15 @@ export const Header = ({
   const [keyInputStatus, setKeyInputStatus] = useState<string | null>(null);
   const [githubToken, setGithubToken] = useState('');
   const [githubStatus, setGithubStatus] = useState<string | null>(null);
+
+  // Assinatura Cakto do usuário
+  const { email, subscription, saveEmailAndSync, refreshSubscription } = useUserSubscription();
+  const [inputEmail, setInputEmail] = useState(email || '');
+  const [emailSyncStatus, setEmailSyncStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (email) setInputEmail(email);
+  }, [email]);
 
   useEffect(() => {
     const token = localStorage.getItem('github_token');
@@ -191,6 +203,27 @@ export const Header = ({
         </button>
         
         <div className="flex items-center gap-3">
+          {/* Status da Assinatura Cakto */}
+          {subscription?.isSubscribed ? (
+            <div 
+              onClick={() => setIsSettingsOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-500/15 border border-indigo-500/35 text-indigo-300 text-xs font-medium cursor-pointer hover:bg-indigo-500/20 transition-colors"
+              title="Assinatura Cakto ativa"
+            >
+              <Sparkles className="w-3 h-3 text-indigo-400" />
+              <span>{subscription.planName}</span>
+            </div>
+          ) : (
+            <div 
+              onClick={() => setIsSettingsOpen(true)}
+              className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-gray-400 text-xs cursor-pointer hover:bg-white/10 hover:text-gray-200 transition-colors"
+              title="Acessar configurações de assinatura Cakto"
+            >
+              <ShieldCheck className="w-3 h-3 text-gray-400" />
+              <span>Plano Free</span>
+            </div>
+          )}
+
           {apiKeys.length > 0 && (
             <div 
               onClick={() => setIsSettingsOpen(true)}
@@ -407,8 +440,110 @@ export const Header = ({
               </p>
             )}
           </div>
+
+          {/* Cakto Subscription Section */}
+          <div className="space-y-3 pt-3 border-t border-white/10">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-gray-200 flex items-center gap-1.5">
+                <CreditCard className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Assinatura & Recorrência Cakto</span>
+              </label>
+              {subscription?.isSubscribed ? (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                  {subscription.planName} Ativo
+                </span>
+              ) : (
+                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-white/5 text-gray-400 border border-white/10">
+                  Plano Gratuito
+                </span>
+              )}
+            </div>
+
+            {/* Subscription details card */}
+            {subscription?.isSubscribed && (
+              <div className="p-3 rounded-lg bg-indigo-950/20 border border-indigo-500/25 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-gray-300">
+                  <span className="text-gray-400">Plano Ativo:</span>
+                  <span className="font-semibold text-white">{subscription.planName}</span>
+                </div>
+                {subscription.paymentMethod && (
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="text-gray-400">Forma de Cobrança:</span>
+                    <span className="capitalize text-indigo-300 flex items-center gap-1">
+                      {subscription.paymentMethod.includes('pix') ? <QrCode className="w-3 h-3" /> : <CreditCard className="w-3 h-3" />}
+                      {subscription.paymentMethod.replace('_', ' ')}
+                    </span>
+                  </div>
+                )}
+                {subscription.currentPeriodEnd && (
+                  <div className="flex items-center justify-between text-gray-300">
+                    <span className="text-gray-400">Próxima Renovação:</span>
+                    <span className="text-gray-300">
+                      {new Date(subscription.currentPeriodEnd).toLocaleDateString('pt-BR')}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Email sync input */}
+            <div className="space-y-1.5">
+              <label className="text-[11px] text-gray-400">
+                E-mail de cadastro no Checkout da Cakto:
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="email"
+                  value={inputEmail}
+                  onChange={(e) => setInputEmail(e.target.value)}
+                  placeholder="seu-email@exemplo.com"
+                  className="flex-1 bg-[#111] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (inputEmail.trim()) {
+                      saveEmailAndSync(inputEmail.trim());
+                      setEmailSyncStatus('Sincronizado!');
+                      setTimeout(() => setEmailSyncStatus(null), 3000);
+                    }
+                  }}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Sincronizar
+                </button>
+              </div>
+              {emailSyncStatus && (
+                <p className="text-xs text-emerald-400 font-medium">
+                  {emailSyncStatus}
+                </p>
+              )}
+            </div>
+
+            {/* Webhook Sandbox Button */}
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSettingsOpen(false);
+                  setIsSimulatorOpen(true);
+                }}
+                className="w-full py-2 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Terminal className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Abrir Simulador de Webhooks Cakto (Sandbox)</span>
+              </button>
+            </div>
+          </div>
         </div>
       </Modal>
+
+      {/* Modal Simulador de Webhooks Cakto */}
+      <CaktoWebhookSimulatorModal
+        isOpen={isSimulatorOpen}
+        onClose={() => setIsSimulatorOpen(false)}
+        onSubscriptionUpdated={() => refreshSubscription()}
+      />
     </header>
   );
 };

@@ -98,6 +98,7 @@ export default function App() {
     downloadPatch: downloadSecurityPatch,
     generatePatch: generateSecurityPatch,
     createPullRequest,
+    restoreBlueprint,
   } = useSecurityAudit();
 
   const {
@@ -645,6 +646,7 @@ export default function App() {
                       onSelectCommitForRollback={(sha) => {
                         setIsCommitHistoryOpen(true);
                       }}
+                      onRestoreBlueprint={restoreBlueprint}
                     />
                   )}
                 </div>

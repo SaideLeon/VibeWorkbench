@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { SecurityAuditResult } from '@/types';
-import { runSecurityAuditStream, runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch } from '@/services/security';
+import { runSecurityAuditStream, runSecurityAudit, generateSecurityBlueprint, generateSecurityPatch, saveBlueprintToHistory } from '@/services/security';
 import { githubApi } from '@/services/github.api';
 import { limitTextContext } from '@/utils/textLimiter';
 import { isAutomatedTestFile, extractExistingTestPaths } from '@/utils/file-selection';
@@ -138,6 +138,7 @@ export function useSecurityAudit() {
       setBlueprintMarkdown(finalMarkdown || '');
 
       // Passo de geração de patch defensivo com base no Blueprint
+      let generatedPatch: string | undefined = undefined;
       if (finalMarkdown) {
         try {
           const patch = await generateSecurityPatch(
@@ -146,8 +147,26 @@ export function useSecurityAudit() {
             apiKey
           );
           setPatchContent(patch);
+          generatedPatch = patch;
         } catch (patchErr) {
           console.warn('Patch pré-gerado falhou, ficará disponível sob demanda:', patchErr);
+        }
+
+        // Salva automaticamente no histórico dos últimos 5 blueprints (Supabase / Fallback)
+        try {
+          saveBlueprintToHistory({
+            projectName,
+            title: `Blueprint de Segurança - ${projectName}`,
+            summary: `${streamRes.auditResult?.findings?.length || 0} vulnerabilidades identificadas e mapeadas`,
+            totalFindings: streamRes.auditResult?.findings?.length || 0,
+            criticalCount: streamRes.auditResult?.counts?.CRITICO || 0,
+            highCount: streamRes.auditResult?.counts?.ALTO || 0,
+            mediumCount: streamRes.auditResult?.counts?.MEDIO || 0,
+            blueprintMarkdown: finalMarkdown,
+            patchContent: generatedPatch,
+          });
+        } catch (histErr) {
+          console.warn('Falha ao registrar histórico de blueprint:', histErr);
         }
       }
 
@@ -180,6 +199,19 @@ export function useSecurityAudit() {
         apiKey
       );
       setBlueprintMarkdown(markdown);
+
+      // Salva no histórico dos últimos 5 blueprints
+      saveBlueprintToHistory({
+        projectName,
+        title: `Blueprint de Segurança - ${projectName}`,
+        summary: `${auditResult.findings?.length || 0} vulnerabilidades identificadas e mapeadas`,
+        totalFindings: auditResult.findings?.length || 0,
+        criticalCount: auditResult.counts?.CRITICO || 0,
+        highCount: auditResult.counts?.ALTO || 0,
+        mediumCount: auditResult.counts?.MEDIO || 0,
+        blueprintMarkdown: markdown,
+      }).catch(err => console.warn('Erro ao salvar histórico do blueprint:', err));
+
       return markdown;
     } finally {
       setIsGeneratingBlueprint(false);
@@ -313,6 +345,37 @@ export function useSecurityAudit() {
     setAuditProgress({ phase: 'idle' });
   }, []);
 
+  const restoreBlueprint = useCallback((blueprintOrMarkdown: string | import('@/services/security').StoredBlueprint, patch?: string) => {
+    if (typeof blueprintOrMarkdown === 'string') {
+      setBlueprintMarkdown(blueprintOrMarkdown);
+      if (patch) setPatchContent(patch);
+    } else {
+      const item = blueprintOrMarkdown;
+      setBlueprintMarkdown(item.blueprint_markdown);
+      if (item.patch_content) setPatchContent(item.patch_content);
+
+      // Restaura o contexto de score e contagens para exibição completa caso não haja auditoria ativa
+      setAuditResult((prev) => {
+        if (prev) return prev;
+        const total = item.total_findings || (item.critical_count + item.high_count + item.medium_count);
+        const score = Math.max(0, 100 - (item.critical_count * 25 + item.high_count * 15 + item.medium_count * 5));
+        return {
+          projectName: item.project_name || 'Projecto',
+          date: item.created_at,
+          findings: [],
+          score,
+          counts: {
+            CRITICO: item.critical_count || 0,
+            ALTO: item.high_count || 0,
+            MEDIO: item.medium_count || 0,
+          },
+          classification: 'RESTORED_BLUEPRINT',
+          classificationLabel: `Blueprint Recuperado (${new Date(item.created_at).toLocaleDateString('pt-BR')})`,
+        };
+      });
+    }
+  }, []);
+
   return {
     isAuditing,
     isHarnessAuditMode,
@@ -321,6 +384,7 @@ export function useSecurityAudit() {
     setAuditProgress,
     auditResult,
     blueprintMarkdown,
+    setBlueprintMarkdown,
     patchContent,
     auditError,
     isGeneratingBlueprint,
@@ -334,6 +398,7 @@ export function useSecurityAudit() {
     downloadPatch,
     generatePatch,
     createPullRequest,
+    restoreBlueprint,
     resetAudit,
   };
 }

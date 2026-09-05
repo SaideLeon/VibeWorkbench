@@ -11,9 +11,13 @@ import {
   ArrowRight, 
   Lock, 
   HelpCircle,
-  Clock
+  Clock,
+  Terminal,
+  QrCode,
+  CreditCard
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CaktoWebhookSimulatorModal } from '@/components/billing/CaktoWebhookSimulatorModal';
 
 interface PricingSectionProps {
   onSelectPlan?: (planId: string) => void;
@@ -22,6 +26,7 @@ interface PricingSectionProps {
 
 export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectionProps) => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [isSimulatorOpen, setIsSimulatorOpen] = useState(false);
 
   const plans = [
     {
@@ -32,6 +37,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Ideal para quem cria micro-SaaS e MVPs com IA e precisa validar a segurança antes do lançamento.',
       priceMonthly: 67,
       priceAnnual: 54, // ~R$ 648/ano
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STARTER_MONTHLY_URL || 'https://pay.cakto.com.br/starter-mensal',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STARTER_ANNUAL_URL || 'https://pay.cakto.com.br/starter-anual',
       icon: Zap,
       accentColor: 'blue',
       features: [
@@ -54,6 +61,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Para engenheiros de software, freelancers e criadores ativos que exigem blindagem contínua e automação GitHub.',
       priceMonthly: 147,
       priceAnnual: 118, // ~R$ 1.416/ano
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_PRO_MONTHLY_URL || 'https://pay.cakto.com.br/pro-mensal',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_PRO_ANNUAL_URL || 'https://pay.cakto.com.br/pro-anual',
       icon: ShieldCheck,
       accentColor: 'indigo',
       features: [
@@ -76,6 +85,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Para agências, software houses e equipes corporativas que auditam múltiplos clientes e emitem laudos.',
       priceMonthly: 347,
       priceAnnual: 278, // ~R$ 3.336/ano
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STUDIO_MONTHLY_URL || 'https://pay.cakto.com.br/studio-mensal',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STUDIO_ANNUAL_URL || 'https://pay.cakto.com.br/studio-anual',
       icon: Building2,
       accentColor: 'amber',
       features: [
@@ -92,9 +103,14 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
     }
   ];
 
-  const handlePlanClick = (planId: string) => {
+  const handlePlanClick = (plan: typeof plans[0]) => {
+    const targetUrl = billingCycle === 'monthly' ? plan.checkoutUrlMonthly : plan.checkoutUrlAnnual;
+    if (targetUrl && targetUrl.startsWith('http')) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
     if (onSelectPlan) {
-      onSelectPlan(planId);
+      onSelectPlan(plan.id);
     } else if (onStartFreeAudit) {
       onStartFreeAudit();
     }
@@ -118,7 +134,7 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
           </p>
 
           {/* Billing Cycle Toggle */}
-          <div className="pt-6 flex items-center justify-center">
+          <div className="pt-6 flex flex-col items-center justify-center gap-4">
             <div className="bg-[#121217] border border-white/10 p-1 rounded-xl inline-flex items-center gap-1 shadow-inner">
               <button
                 onClick={() => setBillingCycle('monthly')}
@@ -145,6 +161,18 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
                   2 Meses Grátis (-20%)
                 </span>
               </button>
+            </div>
+
+            {/* Recorrência sem atrito Cakto */}
+            <div className="flex flex-wrap items-center justify-center gap-2.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-medium">
+                <QrCode className="w-3 h-3" />
+                <span>Pix Automático Recorrente</span>
+              </div>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/25 text-indigo-300 text-[11px] font-medium">
+                <CreditCard className="w-3 h-3" />
+                <span>Cartão de Crédito Automático</span>
+              </div>
             </div>
           </div>
         </div>
@@ -227,7 +255,7 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
                 {/* CTA Button */}
                 <div>
                   <button
-                    onClick={() => handlePlanClick(plan.id)}
+                    onClick={() => handlePlanClick(plan)}
                     className={cn(
                       "w-full py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg",
                       plan.popular
@@ -240,13 +268,39 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
                   </button>
                   <p className="text-[10px] text-gray-500 text-center mt-2 flex items-center justify-center gap-1">
                     <Lock className="w-3 h-3" />
-                    Pagamento 100% seguro via Kiwify • Cancele quando quiser
+                    Pagamento 100% seguro via Cakto • Pix Automático & Cartão
                   </p>
                 </div>
 
               </motion.div>
             );
           })}
+        </div>
+
+        {/* Cakto Webhook Integration Bar */}
+        <div className="mt-12 p-4 rounded-xl bg-gradient-to-r from-indigo-950/30 via-[#121218] to-indigo-950/30 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+              <Terminal className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="text-xs font-bold text-white flex items-center gap-2">
+                <span>Integração SaaS Headless via Webhook Cakto</span>
+                <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded font-mono">/api/webhooks/cakto</span>
+              </div>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Liberação e cancelamento de planos processados automaticamente via eventos de assinatura.
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setIsSimulatorOpen(true)}
+            className="px-3.5 py-2 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer shrink-0"
+          >
+            <Terminal className="w-3.5 h-3.5" />
+            <span>Simular Webhook Cakto (Sandbox)</span>
+          </button>
         </div>
 
         {/* Guarantees and Trust Footer */}
@@ -281,6 +335,12 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
             </div>
           </div>
         </div>
+
+        {/* Modal de Simulação Cakto Sandbox */}
+        <CaktoWebhookSimulatorModal
+          isOpen={isSimulatorOpen}
+          onClose={() => setIsSimulatorOpen(false)}
+        />
 
       </div>
     </section>

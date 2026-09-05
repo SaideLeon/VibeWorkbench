@@ -164,3 +164,80 @@ export async function generateSecurityPatch(
   return response.text();
 }
 
+export interface StoredBlueprint {
+  id: string;
+  project_name: string;
+  title: string;
+  version_number: number;
+  summary?: string;
+  total_findings: number;
+  critical_count: number;
+  high_count: number;
+  medium_count: number;
+  blueprint_markdown: string;
+  patch_content?: string;
+  user_email?: string;
+  created_at: string;
+}
+
+export async function fetchRecentBlueprints(
+  userEmail?: string,
+  projectName?: string
+): Promise<{ blueprints: StoredBlueprint[]; supabaseConnected: boolean }> {
+  try {
+    const params = new URLSearchParams();
+    if (userEmail) params.append('email', userEmail);
+    if (projectName) params.append('projectName', projectName);
+
+    const res = await fetch(`/api/blueprints/history?${params.toString()}`);
+    if (!res.ok) return { blueprints: [], supabaseConnected: false };
+    const data = await res.json();
+    return {
+      blueprints: data.blueprints || [],
+      supabaseConnected: !!data.supabaseConnected
+    };
+  } catch (err) {
+    console.warn('Erro ao buscar histórico de blueprints:', err);
+    return { blueprints: [], supabaseConnected: false };
+  }
+}
+
+export async function saveBlueprintToHistory(payload: {
+  projectName: string;
+  title?: string;
+  summary?: string;
+  totalFindings?: number;
+  criticalCount?: number;
+  highCount?: number;
+  mediumCount?: number;
+  blueprintMarkdown: string;
+  patchContent?: string;
+  userEmail?: string;
+}): Promise<StoredBlueprint | null> {
+  try {
+    const res = await fetch('/api/blueprints/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.blueprint || null;
+  } catch (err) {
+    console.warn('Erro ao salvar blueprint no histórico:', err);
+    return null;
+  }
+}
+
+export async function deleteBlueprintFromHistory(id: string): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/blueprints/history?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+
