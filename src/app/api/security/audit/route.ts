@@ -167,7 +167,7 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
 
     const scoreResult = computeScore(combinedFindings);
 
-    // Traces do DeepSeek-Harness para Auditoria
+    // Traces do Mitigar para Auditoria
     const harnessTraces: AgentTrace[] = [];
     const toolsUsed: string[] = ['tool_scan_ast', 'tool_inspect_file'];
 
@@ -176,7 +176,7 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       stepIndex: 0,
       timestamp: Date.now() - 1200,
       type: 'plan',
-      content: `Iniciando Auditoria de Segurança com motor DeepSeek-Harness em ${contextFiles.length} arquivo(s) de ${projectName || 'projeto'}. Objetivo: Mapear vulnerabilidades R01-R28, escanear segredos vivos e construir Blueprint de remediação.`,
+      content: `Iniciando Auditoria de Segurança com motor Mitigar em ${contextFiles.length} arquivo(s) de ${projectName || 'projeto'}. Objetivo: Mapear vulnerabilidades R01-R28, escanear segredos vivos e construir Blueprint de remediação.`,
       durationMs: 140,
     });
 
@@ -221,7 +221,7 @@ NÃO alegue que o repositório carece de testes automatizados ou que precisa cri
       stepIndex: 4,
       timestamp: Date.now() - 100,
       type: 'final_output',
-      content: `Auditoria concluída com sucesso via DeepSeek-Harness. Classificação: ${scoreResult.classificationLabel} (${scoreResult.score}/100). ${combinedFindings.length} vulnerabilidade(s) pronta(s) para blueprint e geração de patch defensivo.`,
+      content: `Auditoria concluída com sucesso via Mitigar. Classificação: ${scoreResult.classificationLabel} (${scoreResult.score}/100). ${combinedFindings.length} vulnerabilidade(s) pronta(s) para blueprint e geração de patch defensivo.`,
       durationMs: 95,
     });
 

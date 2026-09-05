@@ -74,7 +74,7 @@ export const ReasoningTracePanel = ({
   toolsUsed = [],
   isLive = false,
   generatedPatches = [],
-  title = 'DeepSeek-Harness • Árvore de Raciocínio & Decisão',
+  title = 'Mitigar • Árvore de Raciocínio & Decisão',
   subtitle,
   defaultViewMode = 'tree',
   defaultExpanded = true,
@@ -143,7 +143,7 @@ export const ReasoningTracePanel = ({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `deepseek-harness-reasoning-tree-${Date.now()}.json`;
+    a.download = `mitigar-reasoning-tree-${Date.now()}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -256,7 +256,7 @@ export const ReasoningTracePanel = ({
         <div className="rounded-xl border border-indigo-500/30 bg-[#0d0d14] p-4 text-center space-y-2">
           <div className="inline-flex items-center gap-2 text-indigo-300 text-xs font-semibold">
             <BrainCircuit className="w-4 h-4 animate-spin text-indigo-400" />
-            <span>DeepSeek-Harness Inicializando Árvore de Raciocínio...</span>
+            <span>Mitigar Inicializando Árvore de Raciocínio...</span>
           </div>
           <p className="text-[11px] text-gray-400">
             Conectando aos plugins espaciais de AST e construindo nós de decisão em tempo real.
@@ -650,7 +650,7 @@ export const ReasoningTracePanel = ({
             <div className="flex items-center gap-3">
               <span className="flex items-center gap-1 text-indigo-300">
                 <BrainCircuit className="w-3 h-3 text-indigo-400" />
-                <span>DeepSeek-Harness Engine</span>
+                <span>Mitigar Engine</span>
               </span>
               <span className="hidden sm:inline text-gray-600">•</span>
               <span className="hidden sm:inline">

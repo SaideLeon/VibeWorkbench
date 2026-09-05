@@ -11,7 +11,7 @@ export async function GET() {
   }));
 
   return NextResponse.json({
-    engine: 'DeepSeek-Harness Engine (Cordis Architecture)',
+    engine: 'Mitigar Engine (Cordis Architecture)',
     status: 'online',
     version: '1.2.0',
     totalTools: tools.length,

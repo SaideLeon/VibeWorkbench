@@ -12,7 +12,7 @@ import { sanitizeUnifiedDiff } from '@/utils/patch-sanitizer';
 import { prepareAuditTerrain } from '@/server/security/ground-preparation';
 
 /**
- * DeepSeek-Harness Engine
+ * Mitigar Engine
  * Arquitetura de Plugins Espaço-Temporais & Loop de Agente para Análise e Remediação
  */
 export class DeepSeekHarnessEngine {
@@ -263,7 +263,7 @@ export class DeepSeekHarnessEngine {
           explanation = 'Sanitização de HTML via DOMPurify aplicada antes da renderização dangerouslySetInnerHTML.';
         }
 
-        const diff = sanitizeUnifiedDiff(`--- a/${file.path}\n+++ b/${file.path}\n@@ -1,5 +1,5 @@\n// Patch gerado por DeepSeek-Harness Engine\n`);
+        const diff = sanitizeUnifiedDiff(`--- a/${file.path}\n+++ b/${file.path}\n@@ -1,5 +1,5 @@\n// Patch gerado por Mitigar Engine\n`);
 
         return {
           filePath: file.path,
@@ -323,7 +323,7 @@ export class DeepSeekHarnessEngine {
   }
 
   /**
-   * Executa o Loop do Agente DeepSeek-Harness
+   * Executa o Loop do Agente Mitigar
    */
   public async run(userGoal: string, options: HarnessRunOptions): Promise<HarnessRunResult> {
     const startTime = Date.now();
@@ -337,7 +337,7 @@ export class DeepSeekHarnessEngine {
       stepIndex: 0,
       timestamp: Date.now(),
       type: 'plan',
-      content: `[DeepSeek-Harness Engine] Inicializando sessão de agente autônomo com ${this.tools.size} ferramentas integradas (Cordis Architecture). Objetivo: "${userGoal}"`,
+      content: `[Mitigar Engine] Inicializando sessão de agente autônomo com ${this.tools.size} ferramentas integradas (Cordis Architecture). Objetivo: "${userGoal}"`,
     });
 
     const ai = getAIClient(options.apiKey);
@@ -348,7 +348,7 @@ export class DeepSeekHarnessEngine {
     }));
 
     const systemPrompt = `
-      Você é o DEEPSEEK-HARNESS AGENT, um Agente de Software Autônomo para Análise, Auditoria de Segurança e Remediação de Código.
+      Você é o MITIGAR AGENT, um Agente de Software Autônomo para Análise, Auditoria de Segurança e Remediação de Código.
       
       Você opera sob a filosofia "Agente = Modelo + Harness". Você tem à sua disposição ferramentas especializadas para inspecionar, escanear, gerar patches e validar correções no repositório.
 
@@ -504,7 +504,7 @@ export class DeepSeekHarnessEngine {
 
     return {
       success: true,
-      finalAnswer: finalAnswer || 'Análise concluída pelo DeepSeek-Harness.',
+      finalAnswer: finalAnswer || 'Análise concluída pelo Mitigar.',
       traces,
       toolsUsed: Array.from(toolsUsed),
       iterations: traces.length,

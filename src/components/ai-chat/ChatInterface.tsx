@@ -205,7 +205,7 @@ export const ChatInterface = ({
           </div>
           <div className="min-w-0">
             <h3 className="font-semibold text-sm text-gray-100 flex items-center gap-2 truncate">
-              <span>{isHarnessMode ? "DeepSeek-Harness Agente" : "Assistente de Código"}</span>
+              <span>{isHarnessMode ? "Mitigar Agente" : "Assistente de Código"}</span>
               <button
                 type="button"
                 onClick={onToggleHarnessMode}
@@ -215,17 +215,17 @@ export const ChatInterface = ({
                     ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20" 
                     : "bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700"
                 )}
-                title="Clique para alternar o motor de execução DeepSeek-Harness"
+                title="Clique para alternar o motor de execução Mitigar"
               >
                 <span className={cn("w-1.5 h-1.5 rounded-full", isHarnessMode ? "bg-emerald-400 animate-pulse" : "bg-gray-500")} />
-                {isHarnessMode ? "Harness Active (Cordis)" : "Modo LLM Direto"}
+                {isHarnessMode ? "Mitigar Ativo (Cordis)" : "Modo LLM Direto"}
               </button>
             </h3>
             <p className="text-[11px] text-gray-400 truncate flex items-center gap-1.5">
               {isThinking ? (
                 <span className="text-indigo-400 animate-pulse flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  {isHarnessMode ? "DeepSeek-Harness orquestrando ferramentas e raciocínio..." : "Raciocinando sobre arquivos..."}
+                  {isHarnessMode ? "Mitigar orquestrando ferramentas e raciocínio..." : "Raciocinando sobre arquivos..."}
                 </span>
               ) : (
                 <span>
@@ -374,7 +374,7 @@ export const ChatInterface = ({
                     traces={msg.agentTraces} 
                     toolsUsed={msg.toolsUsed} 
                     generatedPatches={msg.generatedPatches}
-                    title="DeepSeek-Harness • Árvore de Raciocínio & Decisão"
+                    title="Mitigar • Árvore de Raciocínio & Decisão"
                     subtitle={`${msg.agentTraces.length} passos executados • ${msg.toolsUsed?.length || 0} ferramentas acionadas`}
                     defaultExpanded={false}
                   />

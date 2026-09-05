@@ -71,7 +71,7 @@ export function useSecurityAudit() {
     setAuditProgress({ 
       phase: 'auditing', 
       message: activeHarness 
-        ? `[DeepSeek-Harness] A construir AST de segurança para ${effectiveFiles.length} ficheiro(s)...`
+        ? `[Mitigar] A construir AST de segurança para ${effectiveFiles.length} ficheiro(s)...`
         : `A analisar ${effectiveFiles.length} ficheiro(s) contra catálogo de segurança...` 
     });
 

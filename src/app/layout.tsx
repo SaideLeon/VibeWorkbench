@@ -3,10 +3,10 @@ import '@/index.css';
 
 export const metadata: Metadata = {
   title: 'Mitigar IA',
-  description: 'An intelligent GitHub repository analyzer, security auditor, and DeepSeek-Harness autonomous agent engine with spatiotemporal plugin architecture, real-time reasoning traces, and surgical remediation.',
+  description: 'An intelligent GitHub repository analyzer, security auditor, and Mitigar autonomous agent engine with spatiotemporal plugin architecture, real-time reasoning traces, and surgical remediation.',
   openGraph: {
     title: 'Mitigar IA',
-    description: 'An intelligent GitHub repository analyzer, security auditor, and DeepSeek-Harness autonomous agent engine with spatiotemporal plugin architecture, real-time reasoning traces, and surgical remediation.',
+    description: 'An intelligent GitHub repository analyzer, security auditor, and Mitigar autonomous agent engine with spatiotemporal plugin architecture, real-time reasoning traces, and surgical remediation.',
   },
   icons: {
     icon: '/icon.png',

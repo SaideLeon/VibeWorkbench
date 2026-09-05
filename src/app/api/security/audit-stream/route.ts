@@ -217,13 +217,13 @@ NÃO assuma nem afirme que o repositório carece de testes automatizados ou que 
 
         const scoreResult = computeScore(combinedFindings);
 
-        // Traces do DeepSeek-Harness
+        // Traces do Mitigar
         const harnessTraces: AgentTrace[] = [
           {
             stepIndex: 0,
             timestamp: Date.now() - 800,
             type: 'plan',
-            content: `Auditoria de Segurança DeepSeek-Harness finalizada para ${contextFiles.length} arquivo(s).`,
+            content: `Auditoria de Segurança Mitigar finalizada para ${contextFiles.length} arquivo(s).`,
             durationMs: 120,
           },
           {

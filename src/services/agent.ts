@@ -28,7 +28,7 @@ export async function runHarnessAgent(options: RunAgentOptions): Promise<Harness
     } catch {
       // Ignora erro de JSON
     }
-    throw new Error(`Erro no Agente DeepSeek-Harness: ${errorMessage}`);
+    throw new Error(`Erro no Agente Mitigar: ${errorMessage}`);
   }
 
   return response.json();

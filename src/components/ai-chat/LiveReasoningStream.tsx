@@ -93,7 +93,7 @@ export const LiveReasoningStream = ({ repoName, activeFile, isHarnessMode = true
             <BrainCircuit className="w-3 h-3 text-indigo-300 animate-spin" />
           </div>
           <span className="text-xs font-semibold text-indigo-200">
-            DeepSeek-Harness • Execução em Tempo Real
+            Mitigar • Execução em Tempo Real
           </span>
         </div>
 

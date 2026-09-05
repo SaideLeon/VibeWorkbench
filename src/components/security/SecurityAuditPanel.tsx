@@ -122,7 +122,7 @@ interface SecurityAuditPanelProps {
   currentFileName?: string | null;
   lastAuditedFiles?: { path: string }[];
   onOpenFile?: (path: string) => void;
-  // DeepSeek-Harness Engine Integration
+  // Mitigar Engine Integration
   isHarnessMode?: boolean;
   onToggleHarnessMode?: () => void;
   // Git History Audit additions
@@ -282,7 +282,7 @@ export const SecurityAuditPanel = ({
         stepIndex: 0,
         timestamp: 0,
         type: 'plan',
-        content: `Auditoria de segurança com DeepSeek-Harness AST em ${filesCount} arquivo(s).`,
+        content: `Auditoria de segurança com Mitigar AST em ${filesCount} arquivo(s).`,
         durationMs: 120,
       },
       {
@@ -1084,14 +1084,14 @@ export const SecurityAuditPanel = ({
               </div>
             )}
 
-            {/* TAB 4: DEEPSEEK-HARNESS REASONING TRACE & DECISION TREE */}
+            {/* TAB 4: MITIGAR REASONING TRACE & DECISION TREE */}
             {activeTab === 'reasoning' && (
               <div className="space-y-4">
                 <ReasoningTracePanel
                   traces={defaultHarnessTraces}
                   toolsUsed={defaultHarnessTools}
                   generatedPatches={defaultHarnessPatches}
-                  title="DeepSeek-Harness • Árvore de Raciocínio & Decisão da Auditoria"
+                  title="Mitigar • Árvore de Raciocínio & Decisão da Auditoria"
                   subtitle={`${defaultHarnessTraces.length} passos de inferência e validação AST executados`}
                   defaultExpanded={true}
                 />

@@ -240,7 +240,7 @@ export function useAIChat() {
       })) || [];
 
       if (useHarness) {
-        // DeepSeek-Harness Autonomous Agent Workflow
+        // Mitigar Autonomous Agent Workflow
         const agentRes = await runHarnessAgent({
           userGoal: msg,
           files: limitedRelevantFiles,
@@ -265,7 +265,7 @@ export function useAIChat() {
           toolsUsed: agentRes.toolsUsed,
           isHarnessRun: true,
           generatedPatches: agentRes.generatedPatches,
-          retrievalSummary: options?.retrievalSummary || `DeepSeek-Harness (${agentRes.toolsUsed.length} ferramentas acionadas em ${agentRes.iterations} passos)`
+          retrievalSummary: options?.retrievalSummary || `Mitigar (${agentRes.toolsUsed.length} ferramentas acionadas em ${agentRes.iterations} passos)`
         }]);
       } else {
         // Standard Lead Engineer LLM Thinking

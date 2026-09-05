@@ -125,7 +125,7 @@ export const DeepSeekHarnessVisualizer = ({
 
           <div className="min-w-0 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-semibold text-indigo-100 flex items-center gap-1.5">
-              <span>DeepSeek-Harness</span>
+              <span>Mitigar</span>
               <span className="text-[11px] font-normal text-indigo-300/80">
                 • Cadeia de Raciocínio ({traces.length} {traces.length === 1 ? 'passo' : 'passos'})
               </span>
