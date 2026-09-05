@@ -334,27 +334,6 @@ export const SecurityAuditPanel = ({
         {isAuditing ? (
           <div className="flex items-center gap-3 min-w-0">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[10px] font-mono shadow-sm">
-                  <BrainCircuit className="w-3 h-3 text-indigo-400 animate-pulse" />
-                  <span>DeepSeek-Harness AST</span>
-                  {onToggleHarnessMode && (
-                    <button
-                      type="button"
-                      onClick={onToggleHarnessMode}
-                      className={cn(
-                        "ml-1 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase cursor-pointer transition-colors",
-                        isHarnessMode 
-                          ? "bg-indigo-600 text-white hover:bg-indigo-500" 
-                          : "bg-white/10 text-gray-400 hover:text-white"
-                      )}
-                      title="Alternar motor autônomo DeepSeek-Harness"
-                    >
-                      {isHarnessMode ? 'ATIVO' : 'OFF'}
-                    </button>
-                  )}
-                </div>
-              </div>
               <p className="text-[11px] text-gray-400 font-mono truncate max-w-md sm:max-w-xl">
                 {auditProgress?.message || 'A processar auditoria e blueprint de segurança com validação AST...'}
               </p>
@@ -366,27 +345,6 @@ export const SecurityAuditPanel = ({
               <ShieldAlert className="w-4 h-4 text-red-400" />
               Auditoria & Blueprint de Segurança
             </h3>
-            
-            {/* DeepSeek-Harness Engine Badge / Toggle */}
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 text-[11px] font-mono shadow-sm">
-              <BrainCircuit className="w-3 h-3 text-indigo-400" />
-              <span>DeepSeek-Harness AST</span>
-              {onToggleHarnessMode && (
-                <button
-                  type="button"
-                  onClick={onToggleHarnessMode}
-                  className={cn(
-                    "ml-1 text-[9px] px-1.5 py-0.2 rounded font-bold uppercase cursor-pointer transition-colors",
-                    isHarnessMode 
-                      ? "bg-indigo-600 text-white hover:bg-indigo-500" 
-                      : "bg-white/10 text-gray-400 hover:text-white"
-                  )}
-                  title="Alternar motor autônomo DeepSeek-Harness"
-                >
-                  {isHarnessMode ? 'ATIVO' : 'OFF'}
-                </button>
-              )}
-            </div>
           </div>
         )}
 
