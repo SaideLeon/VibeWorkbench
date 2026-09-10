@@ -139,7 +139,14 @@ class CaktoBillingService {
       return { plan: 'studio', planName: 'Studio & Agências' };
     }
 
-    if (text.includes('pro') || text.includes('developer') || text.includes('avançado') || text.includes('profissional')) {
+    if (
+      text.includes('pro') ||
+      text.includes('developer') ||
+      text.includes('avançado') ||
+      text.includes('profissional') ||
+      text.includes('wo3j4xi') ||
+      text.includes('1099797')
+    ) {
       return { plan: 'pro', planName: 'Pro Developer' };
     }
 
@@ -223,7 +230,8 @@ class CaktoBillingService {
     // Extrai produto, plano e assinatura (compatível com os campos exatos da Cakto)
     const product = data.product || {};
     const offer = data.offer || {};
-    const { plan, planName } = this.resolvePlan(product.name, offer.name, data.plan_name || data.plan);
+    const rawPlanIdentifier = `${data.plan_name || ''} ${data.plan || ''} ${data.checkoutUrl || ''} ${product.short_id || ''} ${offer.id || ''}`;
+    const { plan, planName } = this.resolvePlan(product.name, offer.name, rawPlanIdentifier);
     const caktoSubscriptionId = String(
       data.subscription_id || 
       data.subscription?.id || 

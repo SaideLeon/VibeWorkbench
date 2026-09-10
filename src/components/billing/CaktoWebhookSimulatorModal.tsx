@@ -68,7 +68,7 @@ export const CaktoWebhookSimulatorModal = ({
     "subscription": null,
     "subscription_period": 1,
     "parent_order": null,
-    "checkoutUrl": "https://pay.cakto.com.br/EXAMPLE",
+    "checkoutUrl": "https://pay.cakto.com.br/wo3j4xi_1099797",
     "status": "paid",
     "baseAmount": 100,
     "discount": 10,

@@ -61,7 +61,7 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Para engenheiros de software, freelancers e criadores ativos que exigem blindagem contínua e automação GitHub.',
       priceMonthly: 147,
       priceAnnual: 118, // ~R$ 1.416/ano
-      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_PRO_MONTHLY_URL || 'https://pay.cakto.com.br/pro-mensal',
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_PRO_MONTHLY_URL || 'https://pay.cakto.com.br/wo3j4xi_1099797',
       checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_PRO_ANNUAL_URL || 'https://pay.cakto.com.br/pro-anual',
       icon: ShieldCheck,
       accentColor: 'indigo',
