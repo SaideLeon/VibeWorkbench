@@ -10,16 +10,27 @@ export const runtime = 'nodejs';
  */
 export async function POST(req: NextRequest) {
   try {
-    // 1. Verificação de segurança (Secret / Token da Cakto)
+    // 1. Leitura do corpo da requisição primeiro (Cakto envia o secret dentro do body: body.secret)
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return NextResponse.json(
+        { error: 'Corpo da requisição vazio ou formato JSON inválido.' },
+        { status: 400 }
+      );
+    }
+
+    // 2. Verificação de segurança (Secret / Token da Cakto no body, headers ou query)
     const headerSecret = req.headers.get('x-cakto-secret');
     const headerToken = req.headers.get('x-cakto-token');
     const authHeader = req.headers.get('authorization');
     const queryToken = req.nextUrl.searchParams.get('token');
+    const bodySecret = body?.secret || body?.data?.secret;
 
     const isAuthorized = caktoBillingService.verifyWebhookSecret(
       headerSecret,
       headerToken || authHeader,
-      queryToken
+      queryToken,
+      bodySecret
     );
 
     if (!isAuthorized) {
@@ -27,15 +38,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: 'Não autorizado. Secret ou token do webhook inválido.' },
         { status: 401 }
-      );
-    }
-
-    // 2. Leitura do corpo da requisição
-    const body = await req.json().catch(() => null);
-    if (!body) {
-      return NextResponse.json(
-        { error: 'Corpo da requisição vazio ou formato JSON inválido.' },
-        { status: 400 }
       );
     }
 
@@ -49,6 +51,7 @@ export async function POST(req: NextRequest) {
         success: result.success,
         event: result.event,
         message: result.message,
+        subscription: result.subscription,
         timestamp: new Date().toISOString()
       },
       { status: 200 }

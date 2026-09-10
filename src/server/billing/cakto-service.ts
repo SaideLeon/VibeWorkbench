@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { getSupabaseServerClient } from '@/lib/supabase';
 
 export type PlanType = 'starter' | 'pro' | 'studio' | 'free';
 export type SubscriptionStatus = 'active' | 'canceled' | 'past_due' | 'trialing' | 'unpaid';
@@ -100,11 +101,17 @@ class CaktoBillingService {
 
   /**
    * Valida se a requisição do webhook é autêntica via secret ou token
+   * Suporta:
+   * 1. body.secret (Padrão enviado no JSON pela Cakto)
+   * 2. Header 'x-cakto-secret'
+   * 3. Header 'Authorization: Bearer <token>'
+   * 4. Query param '?token=<secret>'
    */
   public verifyWebhookSecret(
     headerSecret?: string | null,
     headerToken?: string | null,
-    queryToken?: string | null
+    queryToken?: string | null,
+    bodySecret?: string | null
   ): boolean {
     const configuredSecret = process.env.CAKTO_WEBHOOK_SECRET;
 
@@ -114,11 +121,11 @@ class CaktoBillingService {
       return true;
     }
 
-    const candidate = headerSecret || headerToken || queryToken;
+    const candidate = bodySecret || headerSecret || headerToken || queryToken;
     if (!candidate) return false;
 
     // Remove 'Bearer ' se vier no cabeçalho Authorization
-    const cleanCandidate = candidate.replace(/^Bearer\s+/i, '').trim();
+    const cleanCandidate = String(candidate).replace(/^Bearer\s+/i, '').trim();
     return cleanCandidate === configuredSecret.trim();
   }
 
@@ -213,18 +220,54 @@ class CaktoBillingService {
     const customerName = customer.name || data.customer_name || customer.full_name || '';
     const customerPhone = customer.phone || customer.cellphone || '';
 
-    // Extrai produto, plano e assinatura
+    // Extrai produto, plano e assinatura (compatível com os campos exatos da Cakto)
     const product = data.product || {};
     const offer = data.offer || {};
     const { plan, planName } = this.resolvePlan(product.name, offer.name, data.plan_name || data.plan);
-    const caktoSubscriptionId = String(data.subscription_id || data.subscription?.id || data.id || `cakto_${Date.now()}`);
-    const caktoProductId = String(product.id || data.product_id || '');
+    const caktoSubscriptionId = String(
+      data.subscription_id || 
+      data.subscription?.id || 
+      data.id || 
+      data.refId || 
+      `cakto_${Date.now()}`
+    );
+    const caktoProductId = String(product.id || data.product_id || product.short_id || '');
     const caktoOfferId = String(offer.id || data.offer_id || '');
-    const paymentMethod = this.normalizePaymentMethod(data.payment_method || data.paymentMethod || data.method);
-    const amountCents = Number(data.amount || data.price || data.value || 0);
+    const paymentMethod = this.normalizePaymentMethod(
+      data.payment_method || data.paymentMethod || data.paymentMethodName || data.method
+    );
+
+    // Conversão de valor: Cakto envia em Reais no payload (ex: amount: 90, baseAmount: 100, fees: 4.5)
+    const rawAmount = typeof data.amount === 'number'
+      ? data.amount
+      : typeof data.baseAmount === 'number'
+        ? data.baseAmount
+        : Number(data.amount || data.price || data.value || 0);
+
+    const amountCents = rawAmount > 0 && rawAmount < 10000
+      ? Math.round(rawAmount * 100)
+      : Math.round(rawAmount);
 
     const now = new Date();
     const existing = this.subscriptions.get(customerEmail);
+
+    const eventMetadata = {
+      ...(data.metadata || existing?.metadata || {}),
+      refId: data.refId,
+      docNumber: customer.docNumber,
+      docType: customer.docType,
+      paidAt: data.paidAt,
+      createdAt: data.createdAt,
+      card: data.card,
+      checkoutUrl: data.checkoutUrl,
+      discount: data.discount,
+      fees: data.fees,
+      commissions: data.commissions,
+      offerName: offer.name,
+      productName: product.name,
+      productShortId: product.short_id,
+      caktoStatus: data.status,
+    };
 
     let updatedSubscription: UserSubscription = existing || {
       id: `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -243,7 +286,8 @@ class CaktoBillingService {
       updatedAt: now.toISOString(),
       currentPeriodStart: now.toISOString(),
       currentPeriodEnd: now.toISOString(),
-      cancelAtPeriodEnd: false
+      cancelAtPeriodEnd: false,
+      metadata: eventMetadata
     };
 
     switch (event) {
@@ -315,9 +359,10 @@ class CaktoBillingService {
         break;
       }
 
-      // 3. Assinatura cancelada
+      // 3. Assinatura ou compra cancelada
       case 'subscription_canceled':
-      case 'subscription_cancelled': {
+      case 'subscription_cancelled':
+      case 'purchase_canceled': {
         if (existing) {
           updatedSubscription = {
             ...existing,
@@ -352,10 +397,11 @@ class CaktoBillingService {
         break;
       }
 
-      // 4. Inadimplência / Atraso no pagamento
+      // 4. Inadimplência / Atraso no pagamento ou recusa
       case 'subscription_overdue':
       case 'subscription_past_due':
-      case 'payment_failed': {
+      case 'payment_failed':
+      case 'purchase_refused': {
         if (existing) {
           updatedSubscription = {
             ...existing,
@@ -389,8 +435,10 @@ class CaktoBillingService {
 
       // 5. Reembolso ou Chargeback
       case 'charge_refunded':
+      case 'purchase_refunded':
       case 'refund':
-      case 'chargeback': {
+      case 'chargeback':
+      case 'purchase_chargeback': {
         if (existing) {
           updatedSubscription = {
             ...existing,
@@ -437,12 +485,63 @@ class CaktoBillingService {
     this.webhookLogs.unshift(logEntry);
     this.saveToDisk();
 
+    // Sincroniza em segundo plano com a tabela subscriptions no Supabase (se configurado)
+    this.syncToSupabase(updatedSubscription).catch((err) => {
+      console.warn('[CaktoBillingService] Erro ao sincronizar assinatura com Supabase:', err);
+    });
+
     return {
       success: true,
       event,
       subscription: updatedSubscription,
       message: `Plano atualizado para ${updatedSubscription.planName} (${updatedSubscription.status}).`
     };
+  }
+
+  /**
+   * Sincroniza a assinatura diretamente com o banco de dados Supabase
+   */
+  private async syncToSupabase(subscription: UserSubscription) {
+    try {
+      const supabase = getSupabaseServerClient();
+      if (!supabase) return;
+
+      const dbStatus = subscription.status === 'past_due' ? 'overdue' : subscription.status;
+      let dbMethod = subscription.paymentMethod;
+      if (dbMethod === 'pix' || dbMethod === 'unknown') {
+        dbMethod = 'pix_automatico';
+      }
+
+      const dbRecord = {
+        customer_email: subscription.customerEmail,
+        customer_name: subscription.customerName || null,
+        customer_phone: subscription.customerPhone || null,
+        cakto_subscription_id: subscription.caktoSubscriptionId,
+        plan: subscription.plan,
+        plan_name: subscription.planName,
+        status: dbStatus,
+        frequency: subscription.frequency === 'annual' ? 'annual' : 'monthly',
+        payment_method: dbMethod,
+        amount_cents: subscription.amountCents,
+        currency: subscription.currency || 'BRL',
+        current_period_start: subscription.currentPeriodStart,
+        current_period_end: subscription.currentPeriodEnd || null,
+        cancel_at_period_end: subscription.cancelAtPeriodEnd,
+        updated_at: new Date().toISOString()
+      };
+
+      const { error } = await supabase
+        .from('subscriptions')
+        .upsert(dbRecord, { onConflict: 'cakto_subscription_id' });
+
+      if (error) {
+        console.warn('[CaktoBillingService] Aviso no upsert do Supabase:', error.message);
+      } else {
+        console.log('[CaktoBillingService] Assinatura sincronizada no Supabase:', subscription.customerEmail);
+      }
+    } catch (err) {
+      console.warn('[CaktoBillingService] Falha ao persistir no Supabase:', err);
+    }
   }
 
   /**

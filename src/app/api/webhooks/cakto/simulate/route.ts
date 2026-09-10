@@ -10,6 +10,18 @@ export const runtime = 'nodejs';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Se enviado um payload JSON bruto (como o enviado diretamente pela Cakto)
+    if (body.rawPayload) {
+      const result = await caktoBillingService.processWebhook(body.rawPayload);
+      return NextResponse.json({
+        success: result.success,
+        simulatedEvent: result.event,
+        customerEmail: result.subscription?.customerEmail,
+        result
+      });
+    }
+
     const {
       event = 'subscription_created',
       email = 'desenvolvedor@empresa.com.br',

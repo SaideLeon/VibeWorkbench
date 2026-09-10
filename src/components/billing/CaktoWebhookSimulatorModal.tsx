@@ -26,10 +26,79 @@ export const CaktoWebhookSimulatorModal = ({
   onClose,
   onSubscriptionUpdated
 }: CaktoWebhookSimulatorModalProps) => {
+  const [activeTab, setActiveTab] = useState<'form' | 'json'>('json');
   const [email, setEmail] = useState('desenvolvedor@empresa.com.br');
   const [event, setEvent] = useState('subscription_created');
   const [plan, setPlan] = useState<'starter' | 'pro' | 'studio'>('pro');
   const [paymentMethod, setPaymentMethod] = useState<'pix_automatico' | 'credit_card' | 'boleto'>('pix_automatico');
+  
+  const defaultCaktoPayload = JSON.stringify({
+  "secret": "f8c3de3d-1fea-4d7c-a8b0-29f63c4c3454",
+  "event": "purchase_approved",
+  "data": {
+    "id": "87956abe-940e-4e8b-8a27-82c482920f64",
+    "refId": "9vbgfmg",
+    "customer": {
+      "name": "John Doe",
+      "email": "john.doe@example.com",
+      "phone": "34999999999",
+      "docNumber": "12345678909",
+      "birthDate": null,
+      "docType": "cpf"
+    },
+    "address": null,
+    "shipping": null,
+    "affiliate": "affiliate@example.com",
+    "offer": {
+      "id": "B8BcHrY",
+      "name": "Special Offer",
+      "price": 100,
+      "image": null
+    },
+    "offer_type": "main",
+    "product": {
+      "name": "Produto Teste",
+      "id": "ff3fdf61-e88f-43b5-982a-32d50f112414",
+      "short_id": "AckhQ75",
+      "supportEmail": "suporte@seudominio.com",
+      "type": "unique",
+      "invoiceDescription": ""
+    },
+    "checkout": 12345,
+    "subscription": null,
+    "subscription_period": 1,
+    "parent_order": null,
+    "checkoutUrl": "https://pay.cakto.com.br/EXAMPLE",
+    "status": "paid",
+    "baseAmount": 100,
+    "discount": 10,
+    "amount": 90,
+    "commissions": [
+      {
+        "user": "produtor@seudominio.com",
+        "totalAmount": 85.5,
+        "type": "producer",
+        "percentage": 95
+      }
+    ],
+    "fees": 4.5,
+    "couponCode": null,
+    "reason": null,
+    "refund_reason": null,
+    "installments": 1,
+    "paymentMethod": "credit_card",
+    "paymentMethodName": "Cartão de Crédito",
+    "paidAt": "2026-06-26T12:00:00.000000+00:00",
+    "createdAt": "2026-06-26T12:00:00.000000+00:00",
+    "card": {
+      "lastDigits": "4323",
+      "holderName": "Card Example",
+      "brand": "visa"
+    }
+  }
+}, null, 2);
+
+  const [rawJson, setRawJson] = useState(defaultCaktoPayload);
   const [isLoading, setIsLoading] = useState(false);
   const [responseLog, setResponseLog] = useState<any | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -42,15 +111,29 @@ export const CaktoWebhookSimulatorModal = ({
     setResponseLog(null);
 
     try {
-      const res = await fetch('/api/webhooks/cakto/simulate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let bodyPayload: any;
+
+      if (activeTab === 'json') {
+        let parsed: any;
+        try {
+          parsed = JSON.parse(rawJson);
+        } catch (e: any) {
+          throw new Error('O JSON informado possui erros de sintaxe: ' + e.message);
+        }
+        bodyPayload = { rawPayload: parsed };
+      } else {
+        bodyPayload = {
           event,
           email,
           plan,
           paymentMethod
-        })
+        };
+      }
+
+      const res = await fetch('/api/webhooks/cakto/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload)
       });
 
       const data = await res.json();
@@ -60,7 +143,8 @@ export const CaktoWebhookSimulatorModal = ({
 
       setResponseLog(data);
       if (onSubscriptionUpdated) {
-        onSubscriptionUpdated(email);
+        const updatedEmail = data.customerEmail || email;
+        onSubscriptionUpdated(updatedEmail);
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'Erro inesperado ao simular');
@@ -101,82 +185,141 @@ export const CaktoWebhookSimulatorModal = ({
 
         {/* Content */}
         <div className="p-6 overflow-y-auto space-y-5 flex-1">
-          
-          {/* E-mail do Cliente */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-              E-mail do Assinante (Cliente Cakto):
-            </label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
-              placeholder="cliente@exemplo.com.br"
-            />
+
+          {/* Abas de Modo */}
+          <div className="flex border-b border-white/10 gap-4 pb-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab('json')}
+              className={cn(
+                "text-xs font-semibold pb-1 border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === 'json'
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              Payload JSON da Cakto (purchase_approved, etc.)
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('form')}
+              className={cn(
+                "text-xs font-semibold pb-1 border-b-2 transition-all cursor-pointer flex items-center gap-1.5",
+                activeTab === 'form'
+                  ? "border-indigo-500 text-indigo-400"
+                  : "border-transparent text-gray-400 hover:text-gray-200"
+              )}
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Formulário Rápido
+            </button>
           </div>
 
-          {/* Evento */}
-          <div>
-            <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-              Tipo de Evento da Cakto:
-            </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {[
-                { id: 'subscription_created', label: 'subscription_created', desc: 'Nova Assinatura Ativada' },
-                { id: 'subscription_renewed', label: 'subscription_renewed', desc: 'Cobrança Recorrente Paga' },
-                { id: 'subscription_canceled', label: 'subscription_canceled', desc: 'Assinatura Cancelada' }
-              ].map((ev) => (
+          {activeTab === 'json' ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-gray-300">
+                  Cole ou edite o JSON enviado pelo Webhook da Cakto:
+                </label>
                 <button
-                  key={ev.id}
                   type="button"
-                  onClick={() => setEvent(ev.id)}
-                  className={cn(
-                    "p-3 rounded-xl border text-left transition-all cursor-pointer",
-                    event === ev.id
-                      ? "bg-indigo-600/15 border-indigo-500/50 text-indigo-200"
-                      : "bg-white/[0.02] border-white/10 text-gray-400 hover:text-gray-200"
-                  )}
+                  onClick={() => setRawJson(defaultCaktoPayload)}
+                  className="text-[11px] text-indigo-400 hover:text-indigo-300 cursor-pointer underline"
                 >
-                  <div className="text-xs font-mono font-bold">{ev.label}</div>
-                  <div className="text-[11px] text-gray-400 mt-0.5">{ev.desc}</div>
+                  Restaurar payload purchase_approved
                 </button>
-              ))}
+              </div>
+              <textarea
+                value={rawJson}
+                onChange={(e) => setRawJson(e.target.value)}
+                rows={12}
+                className="w-full bg-[#181820] border border-white/10 rounded-xl p-3 text-[11px] font-mono text-emerald-300 placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                placeholder="Cole aqui o payload JSON da Cakto..."
+              />
+              <p className="text-[11px] text-gray-400">
+                Este simulador testa diretamente a normalização de dados, ativação de plano, secret de segurança e sincronização no Supabase.
+              </p>
             </div>
-          </div>
+          ) : (
+            <>
+              {/* E-mail do Cliente */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  E-mail do Assinante (Cliente Cakto):
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500"
+                  placeholder="cliente@exemplo.com.br"
+                />
+              </div>
 
-          {/* Plano & Método */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                Plano Ofertado:
-              </label>
-              <select
-                value={plan}
-                onChange={(e: any) => setPlan(e.target.value)}
-                className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="starter">Starter (R$ 67/mês)</option>
-                <option value="pro">Pro Developer (R$ 147/mês)</option>
-                <option value="studio">Studio & Agências (R$ 347/mês)</option>
-              </select>
-            </div>
+              {/* Evento */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                  Tipo de Evento da Cakto:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'purchase_approved', label: 'purchase_approved', desc: 'Compra Aprovada (Cakto)' },
+                    { id: 'subscription_created', label: 'subscription_created', desc: 'Nova Assinatura Ativada' },
+                    { id: 'subscription_canceled', label: 'subscription_canceled', desc: 'Assinatura Cancelada' }
+                  ].map((ev) => (
+                    <button
+                      key={ev.id}
+                      type="button"
+                      onClick={() => setEvent(ev.id)}
+                      className={cn(
+                        "p-3 rounded-xl border text-left transition-all cursor-pointer",
+                        event === ev.id
+                          ? "bg-indigo-600/15 border-indigo-500/50 text-indigo-200"
+                          : "bg-white/[0.02] border-white/10 text-gray-400 hover:text-gray-200"
+                      )}
+                    >
+                      <div className="text-xs font-mono font-bold">{ev.label}</div>
+                      <div className="text-[11px] text-gray-400 mt-0.5">{ev.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-gray-300 mb-1.5">
-                Forma de Pagamento:
-              </label>
-              <select
-                value={paymentMethod}
-                onChange={(e: any) => setPaymentMethod(e.target.value)}
-                className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
-              >
-                <option value="pix_automatico">⚡ Pix Automático (Recorrente)</option>
-                <option value="credit_card">💳 Cartão de Crédito</option>
-                <option value="boleto">📄 Boleto Bancário</option>
-              </select>
-            </div>
-          </div>
+              {/* Plano & Método */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    Plano Ofertado:
+                  </label>
+                  <select
+                    value={plan}
+                    onChange={(e: any) => setPlan(e.target.value)}
+                    className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="starter">Starter (R$ 67/mês)</option>
+                    <option value="pro">Pro Developer (R$ 147/mês)</option>
+                    <option value="studio">Studio & Agências (R$ 347/mês)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-300 mb-1.5">
+                    Forma de Pagamento:
+                  </label>
+                  <select
+                    value={paymentMethod}
+                    onChange={(e: any) => setPaymentMethod(e.target.value)}
+                    className="w-full bg-[#181820] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="pix_automatico">⚡ Pix Automático (Recorrente)</option>
+                    <option value="credit_card">💳 Cartão de Crédito</option>
+                    <option value="boleto">📄 Boleto Bancário</option>
+                  </select>
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Resultado do Teste */}
           {errorMsg && (
