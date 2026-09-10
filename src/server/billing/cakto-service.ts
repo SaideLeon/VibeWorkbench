@@ -130,12 +130,23 @@ class CaktoBillingService {
   }
 
   /**
-   * Mapeia nome ou ID de produto/oferta da Cakto para o plano do Mitigar IA
+   * Mapeia nome ou ID de produto/oferta/checkout da Cakto para o plano do Mitigar IA
+   * Slugs Oficiais:
+   * Starter Mensal: wo3j4xi_1099797 | Starter Anual: 3aev9jt
+   * Pro Developer Mensal: voztkes | Pro Developer Anual: pknfnyf
+   * Studio & Agências Mensal: um6ndpj | Studio & Agências Anual: x9ddaiy
    */
   public resolvePlan(productName?: string, offerName?: string, rawPlan?: string): { plan: PlanType; planName: string } {
     const text = `${productName || ''} ${offerName || ''} ${rawPlan || ''}`.toLowerCase();
 
-    if (text.includes('studio') || text.includes('agencia') || text.includes('agência') || text.includes('enterprise')) {
+    if (
+      text.includes('studio') ||
+      text.includes('agencia') ||
+      text.includes('agência') ||
+      text.includes('enterprise') ||
+      text.includes('um6ndpj') ||
+      text.includes('x9ddaiy')
+    ) {
       return { plan: 'studio', planName: 'Studio & Agências' };
     }
 
@@ -144,18 +155,48 @@ class CaktoBillingService {
       text.includes('developer') ||
       text.includes('avançado') ||
       text.includes('profissional') ||
-      text.includes('wo3j4xi') ||
-      text.includes('1099797')
+      text.includes('voztkes') ||
+      text.includes('pknfnyf')
     ) {
       return { plan: 'pro', planName: 'Pro Developer' };
     }
 
-    if (text.includes('starter') || text.includes('iniciante') || text.includes('mvp') || text.includes('solo')) {
+    if (
+      text.includes('starter') ||
+      text.includes('iniciante') ||
+      text.includes('mvp') ||
+      text.includes('solo') ||
+      text.includes('wo3j4xi') ||
+      text.includes('1099797') ||
+      text.includes('3aev9jt')
+    ) {
       return { plan: 'starter', planName: 'Starter' };
     }
 
     // Default se não identificado
-    return { plan: 'pro', planName: 'Pro Developer' };
+    return { plan: 'starter', planName: 'Starter' };
+  }
+
+  /**
+   * Mapeia periodicidade (mensal vs anual) a partir do payload ou link da Cakto
+   */
+  public resolveFrequency(rawIdentifier?: string, explicitFrequency?: string): BillingFrequency {
+    if (explicitFrequency === 'annual' || explicitFrequency === 'anual') return 'annual';
+    if (explicitFrequency === 'monthly' || explicitFrequency === 'mensal') return 'monthly';
+
+    const text = (rawIdentifier || '').toLowerCase();
+    if (
+      text.includes('3aev9jt') ||
+      text.includes('pknfnyf') ||
+      text.includes('x9ddaiy') ||
+      text.includes('anual') ||
+      text.includes('annual') ||
+      text.includes('ano') ||
+      text.includes('year')
+    ) {
+      return 'annual';
+    }
+    return 'monthly';
   }
 
   /**
@@ -232,6 +273,10 @@ class CaktoBillingService {
     const offer = data.offer || {};
     const rawPlanIdentifier = `${data.plan_name || ''} ${data.plan || ''} ${data.checkoutUrl || ''} ${product.short_id || ''} ${offer.id || ''}`;
     const { plan, planName } = this.resolvePlan(product.name, offer.name, rawPlanIdentifier);
+    const resolvedFrequency = this.resolveFrequency(
+      rawPlanIdentifier,
+      data.frequency || data.billing_frequency
+    );
     const caktoSubscriptionId = String(
       data.subscription_id || 
       data.subscription?.id || 
@@ -285,7 +330,7 @@ class CaktoBillingService {
       plan: 'free',
       planName: 'Plano Gratuito',
       status: 'canceled',
-      frequency: 'monthly',
+      frequency: resolvedFrequency,
       paymentMethod,
       amountCents,
       currency: 'BRL',
@@ -305,8 +350,9 @@ class CaktoBillingService {
       case 'purchase_approved':
       case 'charge_approved':
       case 'order_paid': {
+        const periodDays = resolvedFrequency === 'annual' ? 366 : 32;
         const periodStart = data.current_period_start || now.toISOString();
-        const periodEnd = data.current_period_end || new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000).toISOString();
+        const periodEnd = data.current_period_end || new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000).toISOString();
 
         updatedSubscription = {
           id: existing?.id || `sub_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -316,7 +362,7 @@ class CaktoBillingService {
           plan,
           planName,
           status: 'active',
-          frequency: (data.frequency || data.billing_frequency || 'monthly') as BillingFrequency,
+          frequency: resolvedFrequency,
           paymentMethod,
           amountCents,
           currency: 'BRL',
@@ -339,8 +385,10 @@ class CaktoBillingService {
       case 'subscription_renewed':
       case 'subscription_charged':
       case 'invoice_paid': {
+        const renewFrequency = existing?.frequency || resolvedFrequency;
+        const periodDays = renewFrequency === 'annual' ? 366 : 32;
         const periodStart = data.current_period_start || now.toISOString();
-        const periodEnd = data.current_period_end || new Date(now.getTime() + 32 * 24 * 60 * 60 * 1000).toISOString();
+        const periodEnd = data.current_period_end || new Date(now.getTime() + periodDays * 24 * 60 * 60 * 1000).toISOString();
 
         updatedSubscription = {
           ...(existing || {

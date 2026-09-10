@@ -37,8 +37,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Ideal para quem cria micro-SaaS e MVPs com IA e precisa validar a segurança antes do lançamento.',
       priceMonthly: 67,
       priceAnnual: 54, // ~R$ 648/ano
-      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STARTER_MONTHLY_URL || 'https://pay.cakto.com.br/starter-mensal',
-      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STARTER_ANNUAL_URL || 'https://pay.cakto.com.br/starter-anual',
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STARTER_MONTHLY_URL || 'https://pay.cakto.com.br/wo3j4xi_1099797',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STARTER_ANNUAL_URL || 'https://pay.cakto.com.br/3aev9jt',
       icon: Zap,
       accentColor: 'blue',
       features: [
@@ -61,8 +61,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Para engenheiros de software, freelancers e criadores ativos que exigem blindagem contínua e automação GitHub.',
       priceMonthly: 147,
       priceAnnual: 118, // ~R$ 1.416/ano
-      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_PRO_MONTHLY_URL || 'https://pay.cakto.com.br/wo3j4xi_1099797',
-      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_PRO_ANNUAL_URL || 'https://pay.cakto.com.br/pro-anual',
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_PRO_MONTHLY_URL || 'https://pay.cakto.com.br/voztkes',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_PRO_ANNUAL_URL || 'https://pay.cakto.com.br/pknfnyf',
       icon: ShieldCheck,
       accentColor: 'indigo',
       features: [
@@ -85,8 +85,8 @@ export const PricingSection = ({ onSelectPlan, onStartFreeAudit }: PricingSectio
       description: 'Para agências, software houses e equipes corporativas que auditam múltiplos clientes e emitem laudos.',
       priceMonthly: 347,
       priceAnnual: 278, // ~R$ 3.336/ano
-      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STUDIO_MONTHLY_URL || 'https://pay.cakto.com.br/studio-mensal',
-      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STUDIO_ANNUAL_URL || 'https://pay.cakto.com.br/studio-anual',
+      checkoutUrlMonthly: process.env.NEXT_PUBLIC_CAKTO_STUDIO_MONTHLY_URL || 'https://pay.cakto.com.br/um6ndpj',
+      checkoutUrlAnnual: process.env.NEXT_PUBLIC_CAKTO_STUDIO_ANNUAL_URL || 'https://pay.cakto.com.br/x9ddaiy',
       icon: Building2,
       accentColor: 'amber',
       features: [
